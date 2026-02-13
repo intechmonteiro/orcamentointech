@@ -5,7 +5,7 @@ import { restaurarCarrinho, limparCarrinho } from "./carrinho.js";
 import { gerarPDF, enviarWhatsApp } from "./acoes.js";
 import { montarHomeEAbas, configurarSidebarToggle } from "./ui.js";
 import { configurarPWAInstall } from "./pwa.js";
-import { salvarOrcamento, obterHistorico, restaurarBackup, gerarBackupManual } from "./storage.js";
+import { salvarOrcamento, obterHistorico, gerarBackupManual } from "./storage.js";
 import { carrinho } from "./state.js";
 import { atualizarDashboard } from "./acoes.js";
 import { restaurarBackup } from "./storage.js";
