@@ -5,7 +5,7 @@ import { restaurarCarrinho, limparCarrinho } from "./carrinho.js";
 import { gerarPDF, enviarWhatsApp } from "./acoes.js";
 import { montarHomeEAbas, configurarSidebarToggle } from "./ui.js";
 import { configurarPWAInstall } from "./pwa.js";
-import { salvarOrcamento, obterHistorico } from "./storage.js";
+import { salvarOrcamento, obterHistorico, restaurarBackup, gerarBackupManual } from "./storage.js";
 import { carrinho } from "./state.js";
 import { atualizarDashboard } from "./acoes.js";
 import { restaurarBackup } from "./storage.js";
@@ -222,28 +222,11 @@ document.getElementById("busca-relatorio")?.addEventListener("input", carregarRe
 document.getElementById("filtro-pagamento")?.addEventListener("change", carregarRelatorio);
 
 
-// ================= BACKUP ================= //
+// ================= BACKUP MANUAL (PAINEL ADMIN) ================= //
+document.getElementById("btn-exportar-backup")?.addEventListener("click", () => {
+    gerarBackupManual();
+});
 
-document
-  .getElementById("btn-exportar-backup")
-  ?.addEventListener("click", () => {
-    const historico = localStorage.getItem("MI_HISTORICO_ORCAMENTOS");
-
-    if (!historico) {
-      alert("Nenhum dado para backup.");
-      return;
-    }
-
-    const blob = new Blob([historico], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `backup_orcamentos_${Date.now()}.json`;
-    a.click();
-
-    URL.revokeObjectURL(url);
-  });
 
   // ================= IMPORTAR BACKUP ================= //
 

@@ -8,7 +8,7 @@
 import { collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { db } from "./firebase.js";
 
-// ... (o resto do código continua igualzinho abaixo)
+
 // Cache local para o sistema continuar rápido e não quebrar o seu painel
 let historicoCache = [];
 
@@ -34,7 +34,7 @@ export async function salvarOrcamento(registro) {
   try {
     await addDoc(collection(db, "orcamentos"), registro);
     console.log("✅ Orçamento salvo na nuvem com sucesso!");
-    gerarBackupAutomatico();
+
   } catch (erro) {
     console.error("❌ Erro ao salvar na nuvem: ", erro);
     alert("Erro ao salvar orçamento. Verifique sua internet.");
@@ -51,9 +51,12 @@ export function limparHistorico() {
   alert("Para limpar o histórico da nuvem, acesse o painel do Firebase.");
 }
 
-// ================= BACKUP AUTOMÁTICO ================= //
-export function gerarBackupAutomatico() {
-  if (historicoCache.length === 0) return; // Não faz backup vazio
+// ================= BACKUP MANUAL ================= //
+export function gerarBackupManual() {
+  if (historicoCache.length === 0) {
+    alert("Nenhum dado na nuvem para fazer backup.");
+    return; 
+  }
 
   const data = new Date();
   const timestamp = data.toISOString().replace(/[:.]/g, "-");
@@ -71,7 +74,7 @@ export function gerarBackupAutomatico() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  console.log("✅ Backup automático gerado:", nomeArquivo);
+  console.log("✅ Backup manual gerado:", nomeArquivo);
 }
 
 // ================= RESTAURAR BACKUP PARA A NUVEM ================= //
