@@ -2,45 +2,65 @@
 
 
 
-//------------ Armazenamento local dos orçamentos ------------//
+//------------------------------ CONEXÃO PARA O SALVAR NA NUVEM ------------------------------//
 
 
-const STORAGE_KEY = "MI_HISTORICO_ORCAMENTOS";
+import { collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { db } from "./firebase.js";
 
-// Salva um orçamento
-export function salvarOrcamento(registro) {
-  const lista = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  lista.unshift(registro);
+// ... (o resto do código continua igualzinho abaixo)
+// Cache local para o sistema continuar rápido e não quebrar o seu painel
+let historicoCache = [];
 
-  // mantém só os últimos 100
-  if (lista.length > 100) lista.pop();
+// Escuta o banco de dados em TEMPO REAL (Se salvar no celular, aparece no PC na hora)
+const q = query(collection(db, "orcamentos"), orderBy("data", "desc"));
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
+onSnapshot(q, (snapshot) => {
+  historicoCache = [];
+  snapshot.forEach((doc) => {
+    // Guarda os dados e a ID única gerada pela nuvem
+    historicoCache.push({ id: doc.id, ...doc.data() });
+  });
 
-  gerarBackupAutomatico();
+  // Atualiza as telas automaticamente se o admin estiver aberto
+  if (typeof window.carregarRelatorio === "function") window.carregarRelatorio();
+  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
+});
 
+// ------------ Ações Principais ------------ //
+
+// Salva um orçamento na Nuvem
+export async function salvarOrcamento(registro) {
+  try {
+    await addDoc(collection(db, "orcamentos"), registro);
+    console.log("✅ Orçamento salvo na nuvem com sucesso!");
+    gerarBackupAutomatico();
+  } catch (erro) {
+    console.error("❌ Erro ao salvar na nuvem: ", erro);
+    alert("Erro ao salvar orçamento. Verifique sua internet.");
+  }
 }
-// Retorna todos os orçamentos
+
+// Retorna todos os orçamentos (Lê do cache que é atualizado em tempo real)
 export function obterHistorico() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-}
-// Limpa tudo (se precisar no futuro)
-export function limparHistorico() {
-  localStorage.removeItem(STORAGE_KEY);
+  return historicoCache;
 }
 
+export function limparHistorico() {
+  // Apenas avisamos, apagar tudo da nuvem requer outra função pra segurança
+  alert("Para limpar o histórico da nuvem, acesse o painel do Firebase.");
+}
 
 // ================= BACKUP AUTOMÁTICO ================= //
 export function gerarBackupAutomatico() {
-  const historico = obterHistorico();
+  if (historicoCache.length === 0) return; // Não faz backup vazio
 
   const data = new Date();
   const timestamp = data.toISOString().replace(/[:.]/g, "-");
-
   const nomeArquivo = `backup-orcamentos-${timestamp}.json`;
 
   const blob = new Blob(
-    [JSON.stringify(historico, null, 2)],
+    [JSON.stringify(historicoCache, null, 2)],
     { type: "application/json" }
   );
 
@@ -51,16 +71,14 @@ export function gerarBackupAutomatico() {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-
   console.log("✅ Backup automático gerado:", nomeArquivo);
 }
 
-
-// ================= RESTAURAR BACKUP ================= //
+// ================= RESTAURAR BACKUP PARA A NUVEM ================= //
 export function restaurarBackup(arquivo) {
   const reader = new FileReader();
 
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const dados = JSON.parse(e.target.result);
 
@@ -69,17 +87,16 @@ export function restaurarBackup(arquivo) {
         return;
       }
 
-      localStorage.setItem(
-        "MI_HISTORICO_ORCAMENTOS",
-        JSON.stringify(dados)
-      );
+      alert("⏳ Subindo backup antigo para a nuvem... Clique em OK e aguarde.");
 
-      alert("✅ Backup restaurado com sucesso!");
+      // Sobe cada orçamento antigo para o Firebase
+      for (const item of dados) {
+        // Limpa a ID antiga se tiver, pro Firebase gerar uma nova
+        delete item.id; 
+        await addDoc(collection(db, "orcamentos"), item);
+      }
 
-      // Atualiza telas automaticamente (se existirem)
-      if (typeof carregarRelatorio === "function") carregarRelatorio();
-      if (typeof atualizarDashboard === "function") atualizarDashboard();
-
+      alert("✅ Backup restaurado para a nuvem com sucesso!");
     } catch (err) {
       alert("❌ Erro ao ler arquivo de backup.");
       console.error(err);
