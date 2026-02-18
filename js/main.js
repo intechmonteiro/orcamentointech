@@ -1,27 +1,22 @@
-
-
-
-
-// ---------- ORQUESTRAÇÃO GERAL -----------//
-
-
+import { db } from "./firebase.js";
+// Note que aqui só chamamos UMA VEZ o database e UMA VEZ o storage
 import { carregarDados, iniciarEditorPrecos } from "./database.js";
-import { restaurarCarrinho, limparCarrinho } from "./carrinho.js";
-import { gerarPDF, enviarWhatsApp } from "./acoes.js";
-import { montarHomeEAbas, configurarSidebarToggle } from "./ui.js";
-import { configurarPWAInstall } from "./pwa.js";
-import { salvarOrcamento, obterHistorico, gerarBackupManual } from "./storage.js";
-import { carrinho } from "./state.js";
-import { atualizarDashboard } from "./acoes.js";
-import { restaurarBackup } from "./storage.js";
+import { carrinho, adicionarAoCarrinho, removerDoCarrinho, atualizarCarrinhoUI, restaurarCarrinho } from "./state.js";
+import { configurarSidebarToggle, configurarPWAInstall, mostrarLoading, ocultarLoading, montarHomeEAbas } from "./ui.js";
+import { atualizarDashboard, gerarPDF, enviarWhatsApp } from "./acoes.js";
+import { salvarBackup, restaurarBackup, carregarRelatorio, exportarRelatorioExcel } from "./storage.js";
 
-
+// Inicialização
 document.addEventListener("DOMContentLoaded", async () => {
   restaurarCarrinho();
-  await carregarDados();
+  
+  // Agora carrega do Banco de Dados (ou CSV se tiver vazio)
+  await carregarDados(); 
+  
   montarHomeEAbas();
   configurarSidebarToggle();
   configurarPWAInstall();
+
   // ================= BOTÃO LIMPAR CARRINHO ================= //
   const btnLimpar = document.getElementById("btn-clear-cart");
   
@@ -29,315 +24,119 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (carrinho.length === 0) return alert("O carrinho já está vazio!");
     
     if (confirm("Tem certeza que deseja limpar todo o carrinho?")) {
-      limparCarrinho();
+      // Importe a função limparCarrinho do state.js se ela não estiver sendo usada globalmente
+      // Ou limpamos manualmente aqui:
+      carrinho.length = 0;
+      localStorage.removeItem("carrinho_compras");
+      atualizarCarrinhoUI();
+      document.getElementById("cart-sidebar").classList.remove("open");
     }
   });
 
-// =================  MODAL CHECKOUT (PDF / WHATS ======================== //
+  // Eventos do Carrinho
+  document.getElementById("lista-servicos").addEventListener("click", (e) => {
+    if (e.target.classList.contains("add-btn")) {
+      const card = e.target.closest(".card");
+      const servico = {
+        id: card.dataset.id || card.dataset.modelo + "-" + e.target.dataset.servico, // ID único
+        marca: card.dataset.marca,
+        modelo: card.dataset.modelo,
+        nome: e.target.dataset.servico,
+        preco: parseFloat(e.target.dataset.preco)
+      };
+      adicionarAoCarrinho(servico);
+    }
+  });
 
-const modal = document.getElementById("modal-orcamento");
-const btnClose = document.getElementById("modal-orcamento-fechar");
-const btnConfirmar = document.getElementById("btn-confirmar-orcamento");
+  document.getElementById("cart-items").addEventListener("click", (e) => {
+    if (e.target.classList.contains("remove-item")) {
+      const index = parseInt(e.target.dataset.index);
+      removerDoCarrinho(index);
+    }
+  });
 
-const inputNome = document.getElementById("cliente-nome");
-const selectPagamento = document.getElementById("forma-pagamento");
-const selectParcelas = document.getElementById("parcelas");
+  // Botões de Ação
+  document.getElementById("btn-gerar-pdf").addEventListener("click", () => abrirModalOrcamento("pdf"));
+  document.getElementById("btn-open-wa").addEventListener("click", () => abrirModalOrcamento("whatsapp"));
+  
+  // Modal Orçamento
+  document.getElementById("modal-orcamento-fechar").addEventListener("click", fecharModalOrcamento);
+  document.getElementById("btn-confirmar-orcamento").addEventListener("click", confirmarOrcamento);
 
-let acaoAtual = null;
+  // Filtros de pagamento
+  document.getElementById("forma-pagamento").addEventListener("change", (e) => {
+    const parcelas = document.getElementById("parcelas");
+    if (e.target.value === "Credito") {
+      parcelas.classList.remove("hidden");
+    } else {
+      parcelas.classList.add("hidden");
+      parcelas.value = "";
+    }
+  });
 
-// Abrir modal
-function abrirCheckout(acao) {
+  // Admin Toggle (Atalho de teclado)
+  let keys = [];
+  const senha = "1322";
+  document.addEventListener("keydown", (e) => {
+    keys.push(e.key);
+    if (keys.length > senha.length) keys.shift();
+    if (keys.join("") === senha) {
+      abrirPainelAdmin();
+    }
+  });
+
+  // Botões Admin
+  document.getElementById("btn-exportar-backup").addEventListener("click", salvarBackup);
+  document.getElementById("btn-importar-backup").addEventListener("click", () => document.getElementById("input-importar-backup").click());
+  document.getElementById("input-importar-backup").addEventListener("change", restaurarBackup);
+  
+  document.getElementById("btn-exportar-relatorio").addEventListener("click", exportarRelatorioExcel);
+});
+
+// ================= FUNÇÕES DE MODAL ================= //
+
+let acaoAtual = "";
+
+function abrirModalOrcamento(acao) {
+  if (carrinho.length === 0) return alert("Carrinho vazio!");
   acaoAtual = acao;
-  modal.classList.remove("hidden");
+  document.getElementById("modal-orcamento").classList.remove("hidden");
 }
-// Fechar modal
-function fecharCheckout() {
-  modal.classList.add("hidden");
-  acaoAtual = null;
-  inputNome.value = "";
-  selectPagamento.value = "";
-  selectParcelas.classList.add("hidden");
-  selectParcelas.value = "";
+
+function fecharModalOrcamento() {
+  document.getElementById("modal-orcamento").classList.add("hidden");
 }
-// Botões abrir
-document.getElementById("btn-gerar-pdf")?.addEventListener("click", () => {
-  if (!carrinho.length) return alert("Carrinho vazio");
-  abrirCheckout("pdf");
-});
-document.getElementById("btn-open-wa")?.addEventListener("click", () => {
-  if (!carrinho.length) return alert("Carrinho vazio");
-  abrirCheckout("whats");
-});
-// Fechar modal
-btnClose?.addEventListener("click", fecharCheckout);
-// Mostrar parcelas
-selectPagamento?.addEventListener("change", () => {
-  if (
-    selectPagamento.value === "Credito" ||
-    selectPagamento.value === "Parcelado"
-  ) {
-    selectParcelas.classList.remove("hidden");
+
+function confirmarOrcamento() {
+  const nome = document.getElementById("cliente-nome").value.trim();
+  const pag = document.getElementById("forma-pagamento").value;
+  const parc = document.getElementById("parcelas").value;
+
+  if (!nome || !pag) return alert("Preencha nome e forma de pagamento.");
+  if (pag === "Credito" && !parc) return alert("Selecione as parcelas.");
+
+  const dadosCliente = { nome, pagamento: pag, parcelas: parc };
+
+  mostrarLoading();
+  
+  if (acaoAtual === "pdf") {
+    gerarPDF(carrinho, dadosCliente);
   } else {
-    selectParcelas.classList.add("hidden");
-    selectParcelas.value = "";
-  }
-});
-// Confirmar
-btnConfirmar?.addEventListener("click", () => {
-  if (!inputNome.value.trim()) {
-    alert("Informe o nome do cliente");
-    return;
+    enviarWhatsApp(carrinho, dadosCliente);
   }
 
-  if (!selectPagamento.value) {
-    alert("Selecione a forma de pagamento");
-    return;
-  }
-
-  if (
-    (selectPagamento.value === "Credito" ||
-      selectPagamento.value === "Parcelado") &&
-    !selectParcelas.value
-  ) {
-    alert("Selecione o número de parcelas (máx. 3x)");
-    return;
-  }
-
-  const dadosCliente = {
-    nome: inputNome.value.trim(),
-    pagamento: selectPagamento.value,
-    parcelas: selectParcelas.value || null,
-    validade: "7 dias",
-    data: new Date().toLocaleString("pt-BR")
-  };
-
-  if (acaoAtual === "pdf") gerarPDF(carrinho, dadosCliente);
-  if (acaoAtual === "whats") enviarWhatsApp(carrinho, dadosCliente);
-
-  fecharCheckout();
-});
-});
-
-// =================  BUFFER DE TECLAS ======================== //
-
-let bufferTeclas = "";
-
-// =================  ACESSO ADMINISTRATIVO ======================== //
-
-window.addEventListener("keydown", (e) => {
-  if (!e.key || typeof e.key !== "string") return;
-
-  bufferTeclas += e.key.toLowerCase();
-  bufferTeclas = bufferTeclas.slice(-10);
-
-  if (bufferTeclas.includes("admin")) {
-    bufferTeclas = "";
-    solicitarPinAdmin();
-  }
-});
-
-const PIN_ADMIN = "1322"; // seu PIN
-
-function solicitarPinAdmin() {
-  const pin = prompt("🔐 Área administrativa — Digite o PIN:");
-
-  if (pin === PIN_ADMIN) {
-    abrirPainelAdmin();
-  } else {
-    alert("❌ PIN incorreto.");
-  }
+  fecharModalOrcamento();
+  ocultarLoading();
 }
 
-  function abrirPainelAdmin() {
+function abrirPainelAdmin() {
   const painel = document.getElementById("painel-admin");
   painel.classList.remove("hidden");
 
+  // Carrega os relatórios e gráficos
   atualizarDashboard();
   carregarRelatorio();
-
-  // === LINHA NOVA AQUI: === //
-  iniciarEditorPrecos(); 
+  
+  // Inicia o editor de preços (Busca e Edição)
+  iniciarEditorPrecos();
 }
-
-
-document
-  .getElementById("btn-fechar-admin")
-  ?.addEventListener("click", () => {
-    document.getElementById("painel-admin").classList.add("hidden");
-  });
-
-
-// ================= RELATÓRIO ================= //
-
-function carregarRelatorio() {
-  console.log("🚀 carregarRelatorio disparou");
-
-  const lista = document.getElementById("relatorio-lista");
-  const historico = obterHistorico();
-
-  const busca = document.getElementById("busca-relatorio")?.value.toLowerCase() || "";
-  const filtroPagamento = document.getElementById("filtro-pagamento")?.value || "";
-
-  let filtrados = historico.filter(reg => {
-    const texto =
-      `${reg.cliente} ${reg.numero}`.toLowerCase();
-
-    const bateBusca = texto.includes(busca);
-    const batePagamento = !filtroPagamento || reg.pagamento === filtroPagamento;
-
-    return bateBusca && batePagamento;
-  });
-
-  if (!filtrados.length) {
-    lista.innerHTML = "<p>Nenhum resultado encontrado.</p>";
-    return;
-  }
-
-  lista.innerHTML = "";
-
-  filtrados.forEach((reg, index) => {
-    const div = document.createElement("div");
-    div.className = "relatorio-item";
-
-    const total = Number(reg.total) || 0;
-
-    div.innerHTML = `
-      <strong>#${index + 1} — ${reg.numero}</strong><br>
-      👤 Cliente: ${reg.cliente}<br>
-      💳 Pagamento: ${reg.pagamento}<br>
-📤 Origem: ${reg.origem || "PDF"}<br>
-
-      💰 Total: ${total.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-      })}<br>
-      🕒 Data: ${new Date(reg.data).toLocaleString("pt-BR")}<br><br>
-
-      <button class="btn-abrir-pdf">📄 Abrir PDF</button>
-    `;
-
-    div.querySelector(".btn-abrir-pdf").addEventListener("click", () => {
-      if (!reg.pdf) {
-        alert("❌ Este orçamento não possui PDF salvo.");
-        return;
-      }
-
-      const novaJanela = window.open();
-      novaJanela.document.write(`
-        <iframe 
-          src="${reg.pdf}" 
-          width="100%" 
-          height="100%" 
-          style="border:none;"
-        ></iframe>
-      `);
-    });
-
-    lista.appendChild(div);
-  });
-}
-
-document.getElementById("busca-relatorio")?.addEventListener("input", carregarRelatorio);
-document.getElementById("filtro-pagamento")?.addEventListener("change", carregarRelatorio);
-
-
-// ================= BACKUP MANUAL (PAINEL ADMIN) ================= //
-document.getElementById("btn-exportar-backup")?.addEventListener("click", () => {
-    gerarBackupManual();
-});
-
-
-  // ================= IMPORTAR BACKUP ================= //
-
-const btnImportar = document.getElementById("btn-importar-backup");
-const inputImportar = document.getElementById("input-importar-backup");
-
-btnImportar?.addEventListener("click", () => {
-  inputImportar.click();
-});
-inputImportar?.addEventListener("change", (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = (e) => {
-    try {
-      const conteudo = e.target.result;
-      const dados = JSON.parse(conteudo);
-
-      if (!Array.isArray(dados)) {
-        alert("❌ Arquivo inválido.");
-        return;
-      }
-
-      localStorage.setItem("MI_HISTORICO_ORCAMENTOS", JSON.stringify(dados));
-      alert("✅ Backup importado com sucesso!");
-
-      // Atualiza painel automaticamente
-      carregarRelatorio();
-    } catch (err) {
-      console.error(err);
-      alert("❌ Erro ao importar o backup.");
-    }
-  };
-
-  reader.readAsText(file);
-});
-document.getElementById("btn-exportar-relatorio")?.addEventListener("click", () => {
-  const historico = obterHistorico();
-
-  if (!historico.length) {
-    alert("Nenhum dado para exportar.");
-    return;
-  }
-
-  const cabecalho = [
-    "Número",
-    "Cliente",
-    "Pagamento",
-    "Total",
-    "Data"
-  ];
-
-  const linhas = historico.map(reg => [
-    reg.numero,
-    reg.cliente,
-    reg.pagamento,
-    Number(reg.total || 0).toFixed(2),
-    new Date(reg.data).toLocaleString("pt-BR")
-  ]);
-
-  const csv = [
-    cabecalho.join(";"),
-    ...linhas.map(l => l.join(";"))
-  ].join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `relatorio_orcamentos_${Date.now()}.csv`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-});
-
-
-// ================= RESTAURAR BACKUP ================= //
-
-
-const btnBackup = document.getElementById("btn-restaurar-backup");
-const inputBackup = document.getElementById("input-backup");
-
-btnBackup.addEventListener("click", () => {
-  inputBackup.click();
-});
-
-inputBackup.addEventListener("change", (e) => {
-  const arquivo = e.target.files[0];
-  if (arquivo) {
-    restaurarBackup(arquivo);
-  }
-});
