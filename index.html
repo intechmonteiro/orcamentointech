@@ -7,17 +7,10 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="assets/favicon-16x16.png">
 
-
-  <!-- jsPDF -->
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
-
-
-  <!---------------------- HEADER ----------------------------->
-
 
   <header class="topbar">
     <div class="brand">Monteiro Intech</div>
@@ -26,221 +19,136 @@
     </button>
   </header>
 
-
-<!--------------------- LOADING TELA -------------------------->
-
-
   <div id="loading" class="loading">
-  <div class="spinner"></div>
-  <p>Carregando dados...</p>
-</div>
-
-
-  <!----------------- ABAS DE MARCAS -------------------------->
-
+    <div class="spinner"></div>
+    <p>Carregando dados...</p>
+  </div>
 
   <nav class="brand-tabs-container">
     <div class="container">
       <div id="brand-tabs" class="brand-tabs"></div>
+      
+      <div class="search-container" style="padding: 10px 0; margin-top: 10px;">
+        <input 
+          type="text" 
+          id="app-search" 
+          placeholder="🔍 Digite o modelo do seu celular..." 
+          style="width: 100%; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"
+        >
+      </div>
     </div>
   </nav>
-
-
-  <!--------------- MODAL LIMPAR CARRINHO --------------------->
-
-
-  <div id="modal-limpar" class="modal hidden">
-  <div class="modal-content">
-    <p>Deseja limpar todo o orçamento?</p>
-
-    <button id="modal-confirmar-limpar">Sim</button>
-    <button id="modal-cancelar-limpar">Cancelar</button>
-  </div>
-</div>
-
-
-  <!------------------ PAINEL PRINCIPAL ------------------->
-
 
   <main class="container">
     <section id="lista-servicos"></section>
   </main>
-
-
-  <!------------------ SIDEBAR DO CARRINHO ---------------->
-
 
   <div id="cart-sidebar" class="cart-sidebar">
     <div class="cart-header">
       <h3>Seu Orçamento</h3>
       <button id="cart-close" class="close-btn">✕</button>
     </div>
-    <div id="cart-items" class="cart-items">(carrinho vazio)</div>
+    <div id="cart-items" class="cart-items">
+      <p class="empty-cart">Seu carrinho está vazio</p>
+    </div>
     <div class="cart-total" id="cart-total">Total: R$ 0,00</div>
     <div class="cart-buttons">
       <button id="btn-gerar-pdf" class="btn">Gerar PDF</button>
       <button id="btn-open-wa" class="btn whatsapp">Finalizar e Enviar WhatsApp</button>
-      <button id="btn-clear-cart" class="btn danger">Limpar</button>
+      <button id="btn-clear-cart" class="btn danger">Limpar Carrinho</button>
     </div>
   </div>
 
+  <div id="modal-orcamento" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content modal-central">
+      <div class="modal-header">
+        <h3>Confirmar Orçamento</h3>
+        <button id="modal-orcamento-fechar" class="close-btn" style="color: #333;">✕</button>
+      </div>
 
-  <!-------------------- MODAL ORÇAMENTO ------------------>
+      <div class="modal-body">
+        <input id="cliente-nome" type="text" placeholder="Nome completo do cliente" />
+        
+        <select id="forma-pagamento">
+          <option value="">Forma de pagamento</option>
+          <option value="PIX">PIX</option>
+          <option value="Débito">Cartão Débito</option>
+          <option value="Credito">Cartão Crédito</option>
+        </select>
 
+        <select id="parcelas" class="hidden">
+          <option value="">Parcelas (Selecione)</option>
+          <option value="1x">1x</option>
+          <option value="2x">2x</option>
+          <option value="3x">3x</option>
+        </select>
+      </div>
 
-<div id="modal-orcamento" class="modal hidden">
-  <div class="modal-overlay"></div>
-
-  <div class="modal-content modal-central">
-    <div class="modal-header">
-      <h3>Confirmar Orçamento</h3>
-      <button id="modal-orcamento-fechar" class="close-btn">✕</button>
-    </div>
-
-    <div class="modal-body">
-      <input
-        id="cliente-nome"
-        type="text"
-        placeholder="Nome completo do cliente"
-      />
-
-      <select id="forma-pagamento">
-        <option value="">Forma de pagamento</option>
-        <option value="PIX">PIX</option>
-        <option value="Débito">Cartão Débito</option>
-        <option value="Credito">Cartão Crédito</option>
-      </select>
-
-      <select id="parcelas" class="hidden">
-        <option value="">Parcelas (Selecione)</option>
-        <option value="1x">1x</option>
-        <option value="2x">2x</option>
-        <option value="3x">3x</option>
-      </select>
-    </div>
-
-    <div class="modal-footer">
-      <button id="btn-confirmar-orcamento" class="btn btn-primary">
-        Confirmar
-      </button>
+      <div class="modal-footer">
+        <button id="btn-confirmar-orcamento" class="btn btn-primary" style="background: var(--primary); color: white; width: 100%;">
+          Confirmar
+        </button>
+      </div>
     </div>
   </div>
-</div>
 
-
-<!----------------------- PAINEL ADMIN --------------------->
-
-
-<section id="painel-admin" class="hidden">
-  
-  <div id="dashboard-admin" class="dashboard">
-  <div class="dash-card">
-    <h3>📄 Orçamentos</h3>
-    <span id="dash-qtd">0</span>
+  <div id="modal-login" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content" style="max-width: 300px; text-align: center;">
+      <button id="btn-fechar-login" class="close-btn" style="position: absolute; top: 15px; right: 15px; color: #333;">✕</button>
+      <h3 style="margin-bottom: 15px; color: #004aad;">Acesso Restrito</h3>
+      <input type="password" id="input-senha-admin" placeholder="Digite a senha..." style="width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;">
+      <button id="btn-entrar-admin" class="btn" style="width: 100%; background-color: #004aad; color: white;">Entrar</button>
+    </div>
   </div>
 
-  <div class="dash-card">
-    <h3>💰 Total</h3>
-    <span id="dash-total">R$ 0,00</span>
-  </div>
-
-  <div class="dash-card">
-    <h3>📊 Ticket Médio</h3>
-    <span id="dash-ticket">R$ 0,00</span>
-  </div>
-
-  <div class="dash-card">
-    <h3>💳 PIX</h3>
-    <span id="dash-pix">R$ 0,00</span>
-  </div>
-
-  <div class="dash-card">
-    <h3>💳 Crédito</h3>
-    <span id="dash-credito">R$ 0,00</span>
-  </div>
-
-  <div class="dash-card">
-    <h3>💳 Débito</h3>
-    <span id="dash-debito">R$ 0,00</span>
-  </div>
-</div>
-
-  
-  <h2>Relatórios de Orçamentos</h2>
-
-  <div id="relatorio-lista"></div>
-
-<button id="btn-exportar-relatorio">
-  📊 Exportar Relatório (Excel)
-</button>
-
-  <button id="btn-exportar-backup" class="btn">
-    💾 Exportar Backup
-  </button>
-  <hr>
-<h2>Gerenciar Produtos e Preços</h2>
-
-<div class="editor-container">
-  <div id="admin-brand-tabs" class="brand-tabs" style="justify-content: start; margin-bottom: 15px; flex-wrap: wrap;">
+  <section id="painel-admin" class="hidden">
+    
+    <div class="admin-header">
+      <h2>Painel Administrativo</h2>
+      <div class="admin-tabs">
+        <button class="admin-tab-btn active" data-tab="tab-dashboard">📊 Visão Geral</button>
+        <button class="admin-tab-btn" data-tab="tab-orcamentos">📄 Orçamentos</button>
+        <button class="admin-tab-btn" data-tab="tab-produtos">🏷️ Produtos</button>
+      </div>
     </div>
 
-  <input 
-    type="text" 
-    id="busca-editor" 
-    placeholder="🔍 Ou digite para buscar um modelo específico..." 
-    style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"
-  >
-  
-  <div id="lista-editor-produtos">
-    <p style="color: gray; text-align: center;">Selecione uma marca acima para editar os preços.</p>
-  </div>
-</div>
-  
-  <div id="lista-editor-produtos"></div>
-</div>
-<hr>
-  <input 
-  type="file" 
-  id="input-importar-backup" 
-  accept=".json"
-  hidden
-/>
+    <div id="tab-dashboard" class="admin-tab-content active">
+      <div id="dashboard-admin" class="dashboard">
+        <div class="dash-card"><h3>📄 Orçamentos</h3><span id="dash-qtd">0</span></div>
+        <div class="dash-card"><h3>💰 Total</h3><span id="dash-total">R$ 0,00</span></div>
+        <div class="dash-card"><h3>📊 Ticket Médio</h3><span id="dash-ticket">R$ 0,00</span></div>
+        <div class="dash-card"><h3>💳 PIX</h3><span id="dash-pix">R$ 0,00</span></div>
+        <div class="dash-card"><h3>💳 Crédito</h3><span id="dash-credito">R$ 0,00</span></div>
+        <div class="dash-card"><h3>💳 Débito</h3><span id="dash-debito">R$ 0,00</span></div>
+      </div>
+    </div>
 
-<button id="btn-importar-backup" class="btn">
-  📥 Importar Backup
-</button>
+    <div id="tab-orcamentos" class="admin-tab-content" style="display: none;">
+      <div class="filtros-relatorio">
+        <input type="text" id="busca-relatorio" placeholder="🔎 Buscar por cliente ou número" style="padding: 10px; width: 100%; border: 1px solid #ccc; border-radius: 5px;">
+      </div>
+      <div id="relatorio-lista"></div>
+      <div class="admin-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button id="btn-exportar-relatorio" class="btn">📊 Baixar Planilha</button>
+        <button id="btn-exportar-backup" class="btn" style="background-color: #666;">💾 Backup</button>
+        <input type="file" id="input-importar-backup" accept=".json" hidden />
+        <button id="btn-importar-backup" class="btn" style="background-color: #666;">📥 Restaurar</button>
+      </div>
+    </div>
 
-<div class="filtros-relatorio">
-  <input 
-    type="text" 
-    id="busca-relatorio" 
-    placeholder="🔎 Buscar por cliente ou número"
-  />
+    <div id="tab-produtos" class="admin-tab-content" style="display: none;">
+      <div class="editor-container">
+        <div id="admin-brand-tabs" class="brand-tabs" style="justify-content: start; margin-bottom: 15px; flex-wrap: wrap;"></div>
+        <input type="text" id="busca-editor" placeholder="🔍 Ou digite para buscar um modelo específico..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;">
+        <div id="lista-editor-produtos">
+          <p style="color: gray; text-align: center;">Selecione uma marca acima para editar os preços.</p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <select id="filtro-pagamento">
-    <option value="">💳 Todos pagamentos</option>
-    <option value="PIX">PIX</option>
-    <option value="Credito">Crédito</option>
-    <option value="Débito">Débito</option>
-  </select>
-</div>
-
-<div class="backup-area">
-  <input type="file" id="input-backup" accept=".json" hidden>
-
-  <button id="btn-restaurar-backup">
-    ♻️ Restaurar Backup
-  </button>
-</div>
-
-
-</section>
-
-</section>
-
-
-  <!------------------------ RODAPÉ ------------------------->
-   
   <footer class="rodape-intech">
     <h3>Monteiro Intech</h3>
     <p>Assistência técnica especializada e confiança total.</p>

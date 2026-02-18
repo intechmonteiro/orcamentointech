@@ -1,15 +1,5 @@
-
-
-
-
-// ------------ DADOS GLOBAIS (CARRINHO, MARCAS, DADOS) ------------------ //
-
-export const carrinho = [];
+// Apenas guardamos os dados aqui. NENHUMA função.
 export const dados = [];
 export const marcas = [];
 export const colunasServicos = [];
-
-export function setCarrinho(novo) {
-  carrinho.length = 0;
-  carrinho.push(...novo);
-}
+export const carrinho = [];

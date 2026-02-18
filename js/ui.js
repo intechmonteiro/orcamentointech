@@ -1,244 +1,142 @@
+import { dados, marcas, colunasServicos } from "./state.js";
 
-
-
-
-// ---------- INTERFACE (DOM, SIDEBAR, HOME)  ----------- //
-
-
-import { $ } from "./utils.js";
-import { marcas, dados, carrinho } from "./state.js";
-import { mostrarModelosPorMarca } from "./modelos.js";
-import { removerDoCarrinho, limparCarrinho } from "./carrinho.js";
-import { mostrarServicos } from "./servicos.js";
-
-
-
-export function montarHomeEAbas() {
-  const tabs = $("brand-tabs");
-  if (!tabs) return;
-  tabs.innerHTML = "";
-
-  const btnHome = document.createElement("button");
-  btnHome.className = "brand-tab-btn active";
-  btnHome.dataset.marca = "Home";
-  btnHome.textContent = "Home";
-  btnHome.addEventListener("click", () => {
-    document.querySelectorAll(".brand-tab-btn").forEach(b => b.classList.remove("active"));
-    btnHome.classList.add("active");
-    mostrarHome();
-  });
-  tabs.appendChild(btnHome);
-
-  marcas.forEach(m => {
-    const btn = document.createElement("button");
-    btn.className = "brand-tab-btn";
-    btn.textContent = m;
-    btn.dataset.marca = m;
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".brand-tab-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      mostrarModelosPorMarca(m);
-    });
-    tabs.appendChild(btn);
-  });
-
-  mostrarHome();
-}
-export function mostrarHome() {
-  const container = $("lista-servicos");
-  if (!container) return;
-
-  container.innerHTML = `
-  <div class="home-intro">
-    <h2>Bem-vindo à Monteiro Intech</h2>
-    <p>Busque a marca ou modelo do aparelho para ver os serviços.</p>
-  </div>
-
-  <div class="busca-avancada">
-    <input
-      type="text"
-      class="input-busca-global"
-      placeholder="Ex: Samsung, A03, iPhone 11..."
-    />
-    <button class="btn-buscar">Buscar</button>
-  </div>
-
-  <div class="resultado-busca"></div>
-`;
-
-const input = container.querySelector(".input-busca-global");
-const btn = container.querySelector(".btn-buscar");
-const resultado = container.querySelector(".resultado-busca");
-
-function buscarGlobal() {
-  const termo = input.value.trim().toLowerCase();
-  resultado.innerHTML = "";
-
-  if (!termo) return;
-
-  // 🔹 Buscar por MARCA
-  const marcasEncontradas = marcas.filter(m =>
-    m.toLowerCase().includes(termo)
-  );
-
-  marcasEncontradas.forEach(marca => {
-    const card = document.createElement("div");
-    card.className = "card-resultado";
-    card.innerHTML = `<strong>Marca:</strong> ${marca}`;
-    card.onclick = () => mostrarModelosPorMarca(marca);
-    resultado.appendChild(card);
-  });
-
-  // 🔹 Buscar por MODELO
-  const modelosEncontrados = dados.filter(d =>
-    d.modelo.toLowerCase().includes(termo)
-  );
-
-  modelosEncontrados.forEach(d => {
-    const card = document.createElement("div");
-    card.className = "card-resultado";
-    card.innerHTML = `
-      <strong>${d.modelo}</strong><br>
-      <small>${d.marca}</small>
-    `;
-    card.onclick = () => mostrarServicos(d.marca, d.modelo);
-    resultado.appendChild(card);
-  });
-
-  if (!resultado.innerHTML) {
-    resultado.innerHTML = `<p>Nenhum resultado encontrado.</p>`;
-  }
+// ================= LOADING ================= //
+export function mostrarLoading() {
+  const loading = document.getElementById("loading");
+  if (loading) loading.style.display = "flex";
 }
 
-btn.addEventListener("click", buscarGlobal);
-input.addEventListener("keydown", e => {
-  if (e.key === "Enter") buscarGlobal();
-});
+export function ocultarLoading() {
+  const loading = document.getElementById("loading");
+  if (loading) loading.style.display = "none";
 }
-export function atualizarSidebar() {
-  const lista = document.getElementById("cart-items");
-  const totalEl = document.getElementById("cart-total");
-  if (!lista || !totalEl) return;
 
-  lista.innerHTML = "";
-  let total = 0;
+// ================= SIDEBAR ================= //
+export function configurarSidebarToggle() {
+  const toggleBtn = document.getElementById("cart-toggle");
+  const sidebar = document.getElementById("cart-sidebar");
+  const closeBtn = document.getElementById("cart-close");
 
-  if (carrinho.length === 0) {
-    lista.textContent = "(carrinho vazio)";
-    totalEl.textContent = "Total: R$ 0,00";
+  if (toggleBtn) toggleBtn.addEventListener("click", () => sidebar?.classList.add("open"));
+  if (closeBtn) closeBtn.addEventListener("click", () => sidebar?.classList.remove("open"));
+}
+
+// ================= RENDERIZAÇÃO (A Mágica do Accordion) ================= //
+
+function renderizarLista(listaDeProdutos) {
+  const containerLista = document.getElementById("lista-servicos");
+  if (!containerLista) return;
+
+  containerLista.innerHTML = "";
+
+  if (listaDeProdutos.length === 0) {
+    containerLista.innerHTML = `<p style='text-align:center; padding:20px; color:#666;'>Nenhum modelo encontrado.</p>`;
     return;
   }
 
-  carrinho.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "cart-item";
+  listaDeProdutos.forEach(produto => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.marca = produto.marca;
+    card.dataset.modelo = produto.modelo;
 
-    div.innerHTML = `
-      <div>
-        <strong>${item.nome}</strong><br>
-        <small>${item.qtd}x R$ ${item.preco.toFixed(2)}</small>
-      </div>
-      <button class="btn-remover">−</button>
-    `;
+    let htmlServicos = "";
+    let menorPreco = Infinity;
+    let temServico = false;
+    
+    const chavesServicos = colunasServicos.length > 0 ? colunasServicos : (produto.servicosMap ? Object.keys(produto.servicosMap) : []);
 
-    div.querySelector(".btn-remover").addEventListener("click", () => {
-      removerDoCarrinho(item.modelo, item.nome);
+    chavesServicos.forEach((servico) => {
+      let preco = 0;
+      if (produto.servicosMap) preco = produto.servicosMap[servico] || 0;
+      
+      if (preco > 0) {
+        temServico = true;
+        if (preco < menorPreco) menorPreco = preco;
+
+        const precoFormatado = preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        htmlServicos += `
+          <div class="service-row">
+            <span class="service-name">${servico}</span>
+            <button class="add-btn" data-servico="${servico}" data-preco="${preco}">
+              + ${precoFormatado}
+            </button>
+          </div>
+        `;
+      }
     });
 
-    lista.appendChild(div);
-    total += item.preco * item.qtd;
+    if (!temServico) return; 
+
+    const textoApartir = menorPreco < Infinity 
+      ? `A partir de <strong>${menorPreco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>` 
+      : "";
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="header-info">
+          <h3>📱 ${produto.modelo}</h3>
+          <span class="price-preview">${textoApartir}</span>
+        </div>
+        <div class="toggle-icon">▼</div>
+      </div>
+      <div class="card-services">${htmlServicos}</div>
+    `;
+
+    // Evento de abrir/fechar
+    const header = card.querySelector(".card-header");
+    header.addEventListener("click", () => {
+      const estaAberto = card.classList.contains("open");
+      document.querySelectorAll(".card.open").forEach(c => c.classList.remove("open"));
+      if (!estaAberto) card.classList.add("open");
+    });
+
+    containerLista.appendChild(card);
+  });
+}
+
+// ================= EXPORTS PARA O MAIN ================= //
+
+export function montarHomeEAbas() {
+  const containerAbas = document.getElementById("brand-tabs");
+  if (!containerAbas) return;
+
+  containerAbas.innerHTML = "";
+  marcas.forEach((marca, index) => {
+    const btn = document.createElement("button");
+    btn.textContent = marca;
+    btn.className = "tab-btn";
+    if (index === 0) btn.classList.add("active");
+
+    btn.addEventListener("click", () => {
+      document.getElementById("app-search").value = ""; // Limpa busca
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      
+      const filtrados = dados.filter(p => p.marca === marca);
+      renderizarLista(filtrados);
+    });
+    containerAbas.appendChild(btn);
   });
 
-  totalEl.textContent = total.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-}
-export function destacarCarrinho() {
-  const btn = document.getElementById("cart-toggle");
-  if (!btn) return;
-
-  btn.classList.add("cart-alert");
-
-  setTimeout(() => {
-    btn.classList.remove("cart-alert");
-  }, 1200);
-}
-export function mostrarAvisoFlutuante(msg) {
-  const aviso = document.createElement("div");
-  aviso.className = "aviso-flutuante";
-  aviso.textContent = msg;
-
-  document.body.appendChild(aviso);
-
-  setTimeout(() => aviso.classList.add("show"), 10);
-
-  setTimeout(() => {
-    aviso.classList.remove("show");
-    setTimeout(() => aviso.remove(), 300);
-  }, 2000);
-}
-export function mostrarLoading() {
-  let el = document.getElementById("loading");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "loading";
-    el.className = "loading-overlay";
-    el.innerHTML = `<div class="spinner"></div>`;
-    document.body.appendChild(el);
+  if (marcas.length > 0) {
+    const primeiraMarca = dados.filter(p => p.marca === marcas[0]);
+    renderizarLista(primeiraMarca);
   }
-  el.style.display = "flex";
-}
-export function ocultarLoading() {
-  const el = document.getElementById("loading");
-  if (el) el.style.display = "none";
-}
-export function configurarSidebarToggle() {
-  const btnOpen = document.getElementById("cart-toggle");
-  const btnClose = document.getElementById("cart-close");
-  const sidebar = document.getElementById("cart-sidebar");
-
-  if (!btnOpen || !btnClose || !sidebar) return;
-
-  btnOpen.addEventListener("click", () => {
-    sidebar.classList.add("open");
-  });
-
-  btnClose.addEventListener("click", () => {
-    sidebar.classList.remove("open");
-  });
-}
-export function abrirCheckout(carrinho) {
-  const modal = document.getElementById("modal-checkout");
-  const resumo = document.getElementById("checkout-resumo");
-
-  if (!modal || !resumo) return;
-
-  // resumo do carrinho
-  resumo.innerHTML = carrinho.map(item => `
-    <div>
-      ${item.qtd}x ${item.nome} — R$ ${(item.preco * item.qtd).toFixed(2)}
-    </div>
-  `).join("");
-
-  modal.setAttribute("aria-hidden", "false");
-}
-export function fecharCheckout() {
-  const modal = document.getElementById("modal-checkout");
-  if (modal) modal.setAttribute("aria-hidden", "true");
 }
 
-const pagamento = document.getElementById("checkout-pagamento");
-const parcelas = document.getElementById("checkout-parcelas");
+export function configurarBusca() {
+  const input = document.getElementById("app-search");
+  if (!input) return;
 
-if (pagamento) {
-  pagamento.addEventListener("change", () => {
-    if (pagamento.value === "parcelado") {
-      parcelas.style.display = "block";
-    } else {
-      parcelas.style.display = "none";
-      parcelas.value = "";
+  input.addEventListener("input", (e) => {
+    const termo = e.target.value.toLowerCase();
+    if (termo === "") {
+      document.querySelector(".tab-btn.active")?.click();
+      return;
     }
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    const filtrados = dados.filter(p => p.modelo.toLowerCase().includes(termo) || p.marca.toLowerCase().includes(termo));
+    renderizarLista(filtrados);
   });
 }
-document.getElementById("checkout-close")?.addEventListener("click", fecharCheckout);
