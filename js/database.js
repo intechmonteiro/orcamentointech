@@ -6,7 +6,6 @@
 
 
 import { db } from "./firebase.js";
-import { collection, getDocs, addDoc, writeBatch, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { dados, colunasServicos, marcas } from "./state.js";
 import { mostrarLoading, ocultarLoading, montarHomeEAbas } from "./ui.js";
 import { collection, getDocs, addDoc, writeBatch, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
