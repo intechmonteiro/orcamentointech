@@ -5,7 +5,7 @@
 // ---------- ORQUESTRAÇÃO GERAL -----------//
 
 
-import { carregarDados } from "./database.js";
+import { carregarDados, iniciarEditorPrecos } from "./database.js";
 import { restaurarCarrinho, limparCarrinho } from "./carrinho.js";
 import { gerarPDF, enviarWhatsApp } from "./acoes.js";
 import { montarHomeEAbas, configurarSidebarToggle } from "./ui.js";
@@ -147,12 +147,16 @@ function solicitarPinAdmin() {
     alert("❌ PIN incorreto.");
   }
 }
-function abrirPainelAdmin() {
+
+  function abrirPainelAdmin() {
   const painel = document.getElementById("painel-admin");
   painel.classList.remove("hidden");
 
   atualizarDashboard();
   carregarRelatorio();
+
+  // === LINHA NOVA AQUI: === //
+  iniciarEditorPrecos(); 
 }
 
 

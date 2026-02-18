@@ -9,11 +9,13 @@ import { db } from "./firebase.js";
 import { collection, getDocs, addDoc, writeBatch, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { dados, colunasServicos, marcas } from "./state.js";
 import { mostrarLoading, ocultarLoading, montarHomeEAbas } from "./ui.js";
+import { collection, getDocs, addDoc, writeBatch, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // URL da sua planilha antiga (para migração)
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTLVINumL_bd-huXi3YRvNVit0IjNSijek8TJLrXYsX1uIEwr-UogRTacUkz0cgvkA1ikSPWqymGzw4/pub?output=csv";
 
 // ================= CARREGAR DADOS (Híbrido) ================= //
+
 export async function carregarDados() {
   mostrarLoading();
 
@@ -44,6 +46,7 @@ export async function carregarDados() {
 }
 
 // ================= PROCESSAMENTO FIREBASE ================= //
+
 function processarDadosFirebase(snapshot) {
   // Limpa estados
   marcas.length = 0;
@@ -93,6 +96,7 @@ function processarDadosFirebase(snapshot) {
 
 
 // ================= PROCESSAMENTO CSV (LEGADO) ================= //
+
 async function carregarDoCSV() {
   const resp = await fetch(CSV_URL);
   const texto = await resp.text();
@@ -177,4 +181,125 @@ async function migrarCsvParaFirebase() {
         alert("Erro na migração. Olhe o console.");
     }
     ocultarLoading();
+}
+// ================================================================= //
+// ==================== EDITOR DE PREÇOS (ADMIN) ==================== //
+// ================================================================= //
+
+export function iniciarEditorPrecos() {
+  const container = document.getElementById("lista-editor-produtos");
+  const inputBusca = document.getElementById("busca-editor");
+  
+  if (!container || !inputBusca) return;
+
+  // Função para desenhar a lista
+  const renderizar = (textoBusca = "") => {
+    container.innerHTML = "";
+    
+    // Filtra os dados globais que já carregamos
+    const filtrados = dados.filter(item => {
+      const termo = `${item.marca} ${item.modelo}`.toLowerCase();
+      return termo.includes(textoBusca.toLowerCase());
+    });
+
+    if (filtrados.length === 0) {
+      container.innerHTML = "<p>Nenhum produto encontrado.</p>";
+      return;
+    }
+
+    // Limita a 50 itens para não travar a tela se tiver vazio
+    filtrados.slice(0, 50).forEach(produto => {
+      const div = document.createElement("div");
+      div.className = "item-editor";
+      div.style.border = "1px solid #ccc";
+      div.style.padding = "10px";
+      div.style.marginBottom = "10px";
+      div.style.borderRadius = "5px";
+      div.style.backgroundColor = "#fff";
+
+      let htmlServicos = "";
+      
+      // Cria um input para cada serviço existente nesse produto
+      // produto.servicosMap vem da carga inicial do banco
+      if (produto.servicosMap) {
+        Object.keys(produto.servicosMap).forEach(servico => {
+          const valor = produto.servicosMap[servico];
+          htmlServicos += `
+            <div style="margin-top: 5px; display: flex; align-items: center; gap: 10px;">
+              <label style="width: 100px; font-size: 0.9em;">${servico}:</label>
+              <input type="number" 
+                     class="input-preco" 
+                     data-id="${produto.id}" 
+                     data-servico="${servico}" 
+                     value="${valor}" 
+                     style="padding: 5px; width: 80px;"
+              >
+            </div>
+          `;
+        });
+      }
+
+      div.innerHTML = `
+        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">
+          ${produto.marca} - ${produto.modelo}
+        </div>
+        <div style="background: #f9f9f9; padding: 10px; border-radius: 4px;">
+           ${htmlServicos}
+           <button class="btn-salvar-preco" data-id="${produto.id}" style="margin-top: 10px; background: green; color: white; border: none; padding: 5px 15px; cursor: pointer; border-radius: 4px;">
+             💾 Salvar Alterações
+           </button>
+        </div>
+      `;
+
+      container.appendChild(div);
+    });
+
+    // Adiciona evento aos botões de salvar desta renderização
+    document.querySelectorAll(".btn-salvar-preco").forEach(btn => {
+      btn.addEventListener("click", (e) => salvarProduto(e.target.dataset.id, e.target));
+    });
+  };
+
+  // Escuta a digitação na busca
+  inputBusca.addEventListener("input", (e) => renderizar(e.target.value));
+  
+  // Renderiza inicial (vazio ou tudo)
+  renderizar("");
+}
+
+async function salvarProduto(id, btnElemento) {
+  const containerPai = btnElemento.parentElement;
+  const inputs = containerPai.querySelectorAll(".input-preco");
+  const novosPrecos = {};
+
+  btnElemento.textContent = "⏳ Salvando...";
+  btnElemento.disabled = true;
+
+  try {
+    // 1. Coleta os valores dos inputs
+    inputs.forEach(input => {
+      const nomeServico = input.dataset.servico;
+      const valor = parseFloat(input.value) || 0;
+      novosPrecos[nomeServico] = valor;
+    });
+
+    // 2. Atualiza no Firebase
+    // Nota: "servicos" é o nome do campo objeto lá no Firestore
+    const docRef = doc(db, "produtos", id);
+    await updateDoc(docRef, {
+      servicos: novosPrecos
+    });
+
+    alert("✅ Preços atualizados com sucesso!");
+    
+    // Opcional: Recarregar a página para atualizar a tela principal também
+    // location.reload(); 
+
+  } catch (erro) {
+    console.error("Erro ao salvar:", erro);
+    alert("❌ Erro ao salvar. Veja o console.");
+  } finally {
+    btnElemento.textContent = "💾 Salvar Alterações";
+    btnElemento.disabled = false;
+  }
 }
