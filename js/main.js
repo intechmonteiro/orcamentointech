@@ -1,74 +1,129 @@
-
-
-
-
-//------------------------- IMPORTAÇÕES ---------------------------//
-
-
+import { db } from "./firebase.js";
 import { carregarDados, iniciarEditorPrecos } from "./database.js";
-import { carrinho, adicionarAoCarrinho, removerDoCarrinho, atualizarCarrinhoUI, restaurarCarrinho } from "./state.js";
+import { carrinho, restaurarCarrinho } from "./state.js"; // Importa APENAS dados
 import { configurarSidebarToggle, configurarPWAInstall, mostrarLoading, ocultarLoading, montarHomeEAbas } from "./ui.js";
 import { atualizarDashboard, gerarPDF, enviarWhatsApp } from "./acoes.js";
 import { salvarBackup, restaurarBackup, carregarRelatorio, exportarRelatorioExcel } from "./storage.js";
 
-// Inicialização
-document.addEventListener("DOMContentLoaded", async () => {
-  restaurarCarrinho();
-});
-  document.addEventListener("DOMContentLoaded", async () => {
+// ================= FUNÇÕES DO CARRINHO (LOCAIS) ================= //
 
-  // === VERIFICAÇÃO SE É MODO ADMIN (NOVA JANELA) === //
+function atualizarCarrinhoUI() {
+  const container = document.getElementById("cart-items");
+  const totalEl = document.getElementById("cart-total");
+  const contador = document.getElementById("cart-text");
+
+  if (!container) return;
+
+  container.innerHTML = "";
+  let total = 0;
+
+  carrinho.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.classList.add("cart-item");
+    div.innerHTML = `
+      <div class="cart-item-info">
+        <strong>${item.marca} ${item.modelo}</strong>
+        <span>${item.nome}</span>
+        <span>R$ ${item.preco.toFixed(2)}</span>
+      </div>
+      <div class="cart-item-actions">
+        <span class="qtd">x${item.qtd}</span>
+        <button class="remove-item" data-index="${index}">🗑️</button>
+      </div>
+    `;
+    container.appendChild(div);
+    total += item.preco * item.qtd;
+  });
+
+  if (carrinho.length === 0) {
+    container.innerHTML = "<p class='empty-cart'>Seu carrinho está vazio</p>";
+  }
+
+  const totalFormatado = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  totalEl.textContent = `Total: ${totalFormatado}`;
+  contador.textContent = `Carrinho (${carrinho.reduce((acc, item) => acc + item.qtd, 0)})`;
+
+  // Salva no localStorage
+  localStorage.setItem("carrinho_compras", JSON.stringify(carrinho));
+}
+
+function adicionarAoCarrinho(novoItem) {
+  // Verifica se já existe para aumentar qtd
+  const existente = carrinho.find(
+    (item) => item.marca === novoItem.marca && item.modelo === novoItem.modelo && item.nome === novoItem.nome
+  );
+
+  if (existente) {
+    existente.qtd++;
+  } else {
+    carrinho.push({ ...novoItem, qtd: 1 });
+  }
+  
+  atualizarCarrinhoUI();
+  
+  // Abre o sidebar para feedback visual
+  const sidebar = document.getElementById("cart-sidebar");
+  if (sidebar) sidebar.classList.add("open");
+}
+
+function removerDoCarrinho(index) {
+  carrinho.splice(index, 1);
+  atualizarCarrinhoUI();
+}
+
+
+// ================= INICIALIZAÇÃO ================= //
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+  // 1. Verifica se é ADMIN (Nova Janela)
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('mode') === 'admin') {
-    // Modo Admin: Esconde loja, mostra painel
-    document.body.classList.add("admin-mode"); // Opcional para CSS
+    document.body.classList.add("admin-mode");
+    
+    // Esconde elementos da loja
     document.querySelector("header").style.display = "none";
     document.querySelector("footer").style.display = "none";
     document.querySelector("main").style.display = "none";
-    document.getElementById("painel-admin").classList.remove("hidden");
     
-    // Carrega dados e inicia editor
+    // Mostra Painel
+    const painel = document.getElementById("painel-admin");
+    if(painel) painel.classList.remove("hidden");
+    
+    // Carrega dados e ferramentas
     await carregarDados(); 
     atualizarDashboard();
     carregarRelatorio();
     iniciarEditorPrecos();
     
-    return; // Pára de carregar o resto do site (carrinho, etc)
+    return; // Para a execução aqui
   }
-  // ==================================================== //
 
+  // 2. Modo Loja Normal
   restaurarCarrinho();
-  // ... resto do código continua igual ...
+  atualizarCarrinhoUI(); // Atualiza visual inicial
   
-  // Agora carrega do Banco de Dados (ou CSV se tiver vazio)
   await carregarDados(); 
-  
   montarHomeEAbas();
   configurarSidebarToggle();
   configurarPWAInstall();
 
-  // ================= BOTÃO LIMPAR CARRINHO ================= //
+  // Botão Limpar Carrinho
   const btnLimpar = document.getElementById("btn-clear-cart");
-  
   btnLimpar?.addEventListener("click", () => {
     if (carrinho.length === 0) return alert("O carrinho já está vazio!");
-    
     if (confirm("Tem certeza que deseja limpar todo o carrinho?")) {
-      // Importe a função limparCarrinho do state.js se ela não estiver sendo usada globalmente
-      // Ou limpamos manualmente aqui:
       carrinho.length = 0;
-      localStorage.removeItem("carrinho_compras");
       atualizarCarrinhoUI();
       document.getElementById("cart-sidebar").classList.remove("open");
     }
   });
 
-  // Eventos do Carrinho
+  // Eventos de Clique (Adicionar ao Carrinho)
   document.getElementById("lista-servicos").addEventListener("click", (e) => {
     if (e.target.classList.contains("add-btn")) {
       const card = e.target.closest(".card");
       const servico = {
-        id: card.dataset.id || card.dataset.modelo + "-" + e.target.dataset.servico, // ID único
         marca: card.dataset.marca,
         modelo: card.dataset.modelo,
         nome: e.target.dataset.servico,
@@ -78,6 +133,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Eventos de Clique (Remover do Carrinho)
   document.getElementById("cart-items").addEventListener("click", (e) => {
     if (e.target.classList.contains("remove-item")) {
       const index = parseInt(e.target.dataset.index);
@@ -89,11 +145,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btn-gerar-pdf").addEventListener("click", () => abrirModalOrcamento("pdf"));
   document.getElementById("btn-open-wa").addEventListener("click", () => abrirModalOrcamento("whatsapp"));
   
-  // Modal Orçamento
   document.getElementById("modal-orcamento-fechar").addEventListener("click", fecharModalOrcamento);
   document.getElementById("btn-confirmar-orcamento").addEventListener("click", confirmarOrcamento);
 
-  // Filtros de pagamento
   document.getElementById("forma-pagamento").addEventListener("change", (e) => {
     const parcelas = document.getElementById("parcelas");
     if (e.target.value === "Credito") {
@@ -104,29 +158,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Admin Toggle (Atalho de teclado)
-// Admin Toggle (Atalho de teclado)
+  // Atalho Admin (1322 -> Nova Janela)
   let keys = [];
   const senha = "1322";
   document.addEventListener("keydown", (e) => {
     keys.push(e.key);
     if (keys.length > senha.length) keys.shift();
     if (keys.join("") === senha) {
-      // EM VEZ DE ABRIR DIRETO, ABRE NOVA JANELA COM "?mode=admin"
-      const urlAdmin = window.location.href.split('?')[0] + "?mode=admin";
-      window.open(urlAdmin, "_blank");
+       const urlAdmin = window.location.href.split('?')[0] + "?mode=admin";
+       window.open(urlAdmin, "_blank");
     }
   });
 
-  // Botões Admin
+  // Botões Admin (Exportação)
   document.getElementById("btn-exportar-backup").addEventListener("click", salvarBackup);
   document.getElementById("btn-importar-backup").addEventListener("click", () => document.getElementById("input-importar-backup").click());
   document.getElementById("input-importar-backup").addEventListener("change", restaurarBackup);
-  
   document.getElementById("btn-exportar-relatorio").addEventListener("click", exportarRelatorioExcel);
 });
 
-// ================= FUNÇÕES DE MODAL ================= //
+// ================= FUNÇÕES MODAL ================= //
 
 let acaoAtual = "";
 
@@ -160,16 +211,4 @@ function confirmarOrcamento() {
 
   fecharModalOrcamento();
   ocultarLoading();
-}
-
-function abrirPainelAdmin() {
-  const painel = document.getElementById("painel-admin");
-  painel.classList.remove("hidden");
-
-  // Carrega os relatórios e gráficos
-  atualizarDashboard();
-  carregarRelatorio();
-  
-  // Inicia o editor de preços (Busca e Edição)
-  iniciarEditorPrecos();
 }
