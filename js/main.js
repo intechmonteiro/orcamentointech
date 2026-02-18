@@ -14,6 +14,7 @@ import { salvarBackup, restaurarBackup, carregarRelatorio, exportarRelatorioExce
 // Inicialização
 document.addEventListener("DOMContentLoaded", async () => {
   restaurarCarrinho();
+});
   document.addEventListener("DOMContentLoaded", async () => {
 
   // === VERIFICAÇÃO SE É MODO ADMIN (NOVA JANELA) === //
