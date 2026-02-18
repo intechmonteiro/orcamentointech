@@ -1,5 +1,10 @@
-import { db } from "./firebase.js";
-// Note que aqui só chamamos UMA VEZ o database e UMA VEZ o storage
+
+
+
+
+//------------------------- IMPORTAÇÕES ---------------------------//
+
+
 import { carregarDados, iniciarEditorPrecos } from "./database.js";
 import { carrinho, adicionarAoCarrinho, removerDoCarrinho, atualizarCarrinhoUI, restaurarCarrinho } from "./state.js";
 import { configurarSidebarToggle, configurarPWAInstall, mostrarLoading, ocultarLoading, montarHomeEAbas } from "./ui.js";
@@ -9,6 +14,30 @@ import { salvarBackup, restaurarBackup, carregarRelatorio, exportarRelatorioExce
 // Inicialização
 document.addEventListener("DOMContentLoaded", async () => {
   restaurarCarrinho();
+  document.addEventListener("DOMContentLoaded", async () => {
+
+  // === VERIFICAÇÃO SE É MODO ADMIN (NOVA JANELA) === //
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('mode') === 'admin') {
+    // Modo Admin: Esconde loja, mostra painel
+    document.body.classList.add("admin-mode"); // Opcional para CSS
+    document.querySelector("header").style.display = "none";
+    document.querySelector("footer").style.display = "none";
+    document.querySelector("main").style.display = "none";
+    document.getElementById("painel-admin").classList.remove("hidden");
+    
+    // Carrega dados e inicia editor
+    await carregarDados(); 
+    atualizarDashboard();
+    carregarRelatorio();
+    iniciarEditorPrecos();
+    
+    return; // Pára de carregar o resto do site (carrinho, etc)
+  }
+  // ==================================================== //
+
+  restaurarCarrinho();
+  // ... resto do código continua igual ...
   
   // Agora carrega do Banco de Dados (ou CSV se tiver vazio)
   await carregarDados(); 
@@ -75,13 +104,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Admin Toggle (Atalho de teclado)
+// Admin Toggle (Atalho de teclado)
   let keys = [];
   const senha = "1322";
   document.addEventListener("keydown", (e) => {
     keys.push(e.key);
     if (keys.length > senha.length) keys.shift();
     if (keys.join("") === senha) {
-      abrirPainelAdmin();
+      // EM VEZ DE ABRIR DIRETO, ABRE NOVA JANELA COM "?mode=admin"
+      const urlAdmin = window.location.href.split('?')[0] + "?mode=admin";
+      window.open(urlAdmin, "_blank");
     }
   });
 

@@ -181,89 +181,142 @@ async function migrarCsvParaFirebase() {
     }
     ocultarLoading();
 }
-// ================================================================= //
+
 // ==================== EDITOR DE PREÇOS (ADMIN) ==================== //
-// ================================================================= //
+
+
+// ==================== EDITOR DE PREÇOS (COM ABAS) ==================== //
 
 export function iniciarEditorPrecos() {
-  const container = document.getElementById("lista-editor-produtos");
+  const containerLista = document.getElementById("lista-editor-produtos");
+  const containerAbas = document.getElementById("admin-brand-tabs");
   const inputBusca = document.getElementById("busca-editor");
   
-  if (!container || !inputBusca) return;
+  if (!containerLista || !inputBusca || !containerAbas) return;
 
-  // Função para desenhar a lista
-  const renderizar = (textoBusca = "") => {
-    container.innerHTML = "";
+  // 1. Organizar as Marcas
+  const marcasUnicas = [...new Set(dados.map(item => item.marca))].sort();
+  
+  // 2. Criar os Botões das Abas
+  containerAbas.innerHTML = "";
+  
+  marcasUnicas.forEach(marca => {
+    const btn = document.createElement("button");
+    btn.textContent = marca;
+    btn.className = "tab-btn"; // Usa o mesmo estilo das abas da loja
+    btn.style.marginRight = "5px";
+    btn.style.marginBottom = "5px";
     
-    // Filtra os dados globais que já carregamos
+    btn.onclick = () => {
+      // Remove ativo dos outros e adiciona neste
+      document.querySelectorAll("#admin-brand-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderizarLista(marca, ""); // Mostra só essa marca
+    };
+    containerAbas.appendChild(btn);
+  });
+
+  // Função para desenhar a lista (Filtrada por Marca OU Busca)
+  const renderizarLista = (filtroMarca, filtroTexto) => {
+    containerLista.innerHTML = "";
+    
+    // Filtra os dados
     const filtrados = dados.filter(item => {
-      const termo = `${item.marca} ${item.modelo}`.toLowerCase();
-      return termo.includes(textoBusca.toLowerCase());
+      // Se tiver texto na busca, ignora a marca e busca geral
+      if (filtroTexto.length > 0) {
+        const termo = `${item.marca} ${item.modelo}`.toLowerCase();
+        return termo.includes(filtroTexto.toLowerCase());
+      }
+      // Se não tiver texto, usa a marca selecionada
+      return item.marca === filtroMarca;
     });
 
     if (filtrados.length === 0) {
-      container.innerHTML = "<p>Nenhum produto encontrado.</p>";
+      containerLista.innerHTML = "<p>Nenhum produto encontrado.</p>";
       return;
     }
 
-    // Limita a 50 itens para não travar a tela se tiver vazio
-    filtrados.slice(0, 50).forEach(produto => {
+    // Cria os cards de edição
+    filtrados.forEach(produto => {
       const div = document.createElement("div");
-      div.className = "item-editor";
-      div.style.border = "1px solid #ccc";
-      div.style.padding = "10px";
+      div.style.border = "1px solid #ddd";
+      div.style.padding = "15px";
       div.style.marginBottom = "10px";
-      div.style.borderRadius = "5px";
+      div.style.borderRadius = "8px";
       div.style.backgroundColor = "#fff";
+      div.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
 
       let htmlServicos = "";
       
-      // Cria um input para cada serviço existente nesse produto
-      // produto.servicosMap vem da carga inicial do banco
       if (produto.servicosMap) {
         Object.keys(produto.servicosMap).forEach(servico => {
           const valor = produto.servicosMap[servico];
           htmlServicos += `
-            <div style="margin-top: 5px; display: flex; align-items: center; gap: 10px;">
-              <label style="width: 100px; font-size: 0.9em;">${servico}:</label>
-              <input type="number" 
-                     class="input-preco" 
-                     data-id="${produto.id}" 
-                     data-servico="${servico}" 
-                     value="${valor}" 
-                     style="padding: 5px; width: 80px;"
-              >
+            <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <label style="font-weight: 500;">${servico}:</label>
+              <div style="display: flex; align-items: center;">
+                <span style="margin-right: 5px;">R$</span>
+                <input type="number" 
+                       class="input-preco" 
+                       data-servico="${servico}" 
+                       value="${valor}" 
+                       style="padding: 5px; width: 100px; border: 1px solid #ccc; border-radius: 4px;"
+                >
+              </div>
             </div>
           `;
         });
       }
 
       div.innerHTML = `
-        <div style="font-weight: bold; color: #333; margin-bottom: 5px;">
-          ${produto.marca} - ${produto.modelo}
-        </div>
-        <div style="background: #f9f9f9; padding: 10px; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px 0; color: #1347a1;">${produto.marca} - ${produto.modelo}</h3>
+        <div style="background: #f4f6f8; padding: 10px; border-radius: 5px;">
            ${htmlServicos}
-           <button class="btn-salvar-preco" data-id="${produto.id}" style="margin-top: 10px; background: green; color: white; border: none; padding: 5px 15px; cursor: pointer; border-radius: 4px;">
-             💾 Salvar Alterações
-           </button>
         </div>
+        <button class="btn-salvar-preco" style="margin-top: 15px; width: 100%; background: #28a745; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px; font-weight: bold;">
+          💾 Salvar Alterações
+        </button>
       `;
 
-      container.appendChild(div);
-    });
+      // Lógica do Botão Salvar (Mantida igual)
+      const btnSalvar = div.querySelector(".btn-salvar-preco");
+      btnSalvar.addEventListener("click", async () => {
+        btnSalvar.textContent = "⏳ Salvando...";
+        btnSalvar.disabled = true;
+        
+        try {
+          const novosPrecos = {};
+          div.querySelectorAll(".input-preco").forEach(input => {
+             novosPrecos[input.dataset.servico] = parseFloat(input.value) || 0;
+          });
 
-    // Adiciona evento aos botões de salvar desta renderização
-    document.querySelectorAll(".btn-salvar-preco").forEach(btn => {
-      btn.addEventListener("click", (e) => salvarProduto(e.target.dataset.id, e.target));
+          // Precisamos do import 'doc' e 'updateDoc' e 'db' acessíveis aqui ou globais
+          // Como estão no topo do arquivo, deve funcionar.
+          const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+          const { db } = await import("./firebase.js");
+
+          const docRef = doc(db, "produtos", produto.id);
+          await updateDoc(docRef, { servicos: novosPrecos });
+
+          alert(`✅ Preços atualizados!`);
+        } catch (erro) {
+          console.error("Erro ao salvar:", erro);
+          alert("Erro ao salvar.");
+        } finally {
+          btnSalvar.textContent = "💾 Salvar Alterações";
+          btnSalvar.disabled = false;
+        }
+      });
+
+      containerLista.appendChild(div);
     });
   };
 
-  // Escuta a digitação na busca
-  inputBusca.addEventListener("input", (e) => renderizar(e.target.value));
-  
-  // Renderiza inicial (vazio ou tudo)
-  renderizar("");
+  // Escuta a busca (se digitar, limpa a seleção de abas)
+  inputBusca.addEventListener("input", (e) => {
+    document.querySelectorAll("#admin-brand-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+    renderizarLista(null, e.target.value);
+  });
 }
 
 async function salvarProduto(id, btnElemento) {

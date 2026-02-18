@@ -181,12 +181,20 @@
 <h2>Gerenciar Produtos e Preços</h2>
 
 <div class="editor-container">
+  <div id="admin-brand-tabs" class="brand-tabs" style="justify-content: start; margin-bottom: 15px; flex-wrap: wrap;">
+    </div>
+
   <input 
     type="text" 
     id="busca-editor" 
-    placeholder="🔍 Buscar modelo para editar..." 
-    style="width: 100%; padding: 10px; margin-bottom: 15px;"
+    placeholder="🔍 Ou digite para buscar um modelo específico..." 
+    style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"
   >
+  
+  <div id="lista-editor-produtos">
+    <p style="color: gray; text-align: center;">Selecione uma marca acima para editar os preços.</p>
+  </div>
+</div>
   
   <div id="lista-editor-produtos"></div>
 </div>
