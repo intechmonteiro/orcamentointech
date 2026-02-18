@@ -1,6 +1,11 @@
-// ---------- ORQUESTRAÇÃO GERAL -----------
 
-import { carregarCSV } from "./csv.js";
+
+
+
+// ---------- ORQUESTRAÇÃO GERAL -----------//
+
+
+import { carregarDados } from "./database.js";
 import { restaurarCarrinho, limparCarrinho } from "./carrinho.js";
 import { gerarPDF, enviarWhatsApp } from "./acoes.js";
 import { montarHomeEAbas, configurarSidebarToggle } from "./ui.js";
@@ -13,7 +18,7 @@ import { restaurarBackup } from "./storage.js";
 
 document.addEventListener("DOMContentLoaded", async () => {
   restaurarCarrinho();
-  await carregarCSV();
+  await carregarDados();
   montarHomeEAbas();
   configurarSidebarToggle();
   configurarPWAInstall();
