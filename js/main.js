@@ -17,6 +17,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   montarHomeEAbas();
   configurarSidebarToggle();
   configurarPWAInstall();
+  // ================= BOTÃO LIMPAR CARRINHO ================= //
+  const btnLimpar = document.getElementById("btn-clear-cart");
+  
+  btnLimpar?.addEventListener("click", () => {
+    if (carrinho.length === 0) return alert("O carrinho já está vazio!");
+    
+    if (confirm("Tem certeza que deseja limpar todo o carrinho?")) {
+      limparCarrinho();
+    }
+  });
 
 // =================  MODAL CHECKOUT (PDF / WHATS ======================== //
 
