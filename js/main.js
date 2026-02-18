@@ -1,4 +1,4 @@
-import { carregarDados, iniciarEditorPrecos } from "./database.js";
+import { carregarDados, iniciarEditorPrecos, iniciarImportador } from "./database.js";
 import { carrinho } from "./state.js"; 
 import { configurarSidebarToggle, montarHomeEAbas, configurarBusca, mostrarLoading, ocultarLoading } from "./ui.js";
 import { atualizarDashboard, gerarPDF, enviarWhatsApp } from "./acoes.js";
@@ -98,7 +98,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 2. Inicia as ferramentas do Admin (AQUI ESTAVA O ERRO! AGORA VAI!)
     if(typeof atualizarDashboard === 'function') atualizarDashboard();
     if(typeof carregarRelatorio === 'function') carregarRelatorio();
-    iniciarEditorPrecos(); // <--- ESSA LINHA FAZ OS PREÇOS APARECEREM!
+    iniciarEditorPrecos();
+    iniciarImportador(); 
     
     // Lógica das Abas internas do Admin
     const adminBtns = document.querySelectorAll(".admin-tab-btn");

@@ -107,10 +107,65 @@
     
     <div class="admin-header">
       <h2>Painel Administrativo</h2>
+      <div class="admin-header">
+      <h2>Painel Administrativo</h2>
       <div class="admin-tabs">
         <button class="admin-tab-btn active" data-tab="tab-dashboard">📊 Visão Geral</button>
         <button class="admin-tab-btn" data-tab="tab-orcamentos">📄 Orçamentos</button>
         <button class="admin-tab-btn" data-tab="tab-produtos">🏷️ Produtos</button>
+        <button class="admin-tab-btn" data-tab="tab-importar" style="color: #d32f2f;">📥 Importar Tabela</button>
+      </div>
+    </div>
+
+    <div id="tab-dashboard" class="admin-tab-content active">
+       <div id="dashboard-admin" class="dashboard">
+          <div class="dash-card"><h3>📄 Orçamentos</h3><span id="dash-qtd">0</span></div>
+          <div class="dash-card"><h3>💰 Total</h3><span id="dash-total">R$ 0,00</span></div>
+       </div>
+    </div>
+
+    <div id="tab-orcamentos" class="admin-tab-content" style="display: none;">
+       <div id="relatorio-lista"></div>
+       </div>
+
+    <div id="tab-produtos" class="admin-tab-content" style="display: none;">
+       <div class="editor-container">
+         <div id="admin-brand-tabs" class="brand-tabs"></div>
+         <input type="text" id="busca-editor" placeholder="🔍 Buscar modelo...">
+         <div id="lista-editor-produtos"></div>
+       </div>
+    </div>
+
+    <div id="tab-importar" class="admin-tab-content" style="display: none;">
+      <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        
+        <h3 style="color: #d32f2f; margin-bottom: 15px;">Importador de Tabela de Preços</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+          <div>
+            <label>🛠️ Mão de Obra (R$)</label>
+            <input type="number" id="config-mao-obra" value="80" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+          </div>
+          <div>
+            <label>🚚 Frete Médio (R$)</label>
+            <input type="number" id="config-frete" value="30" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+          </div>
+          <div>
+            <label>📈 Margem (%)</label>
+            <input type="number" id="config-margem" value="25" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+          </div>
+        </div>
+
+        <p style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">Cole a lista bruta do WhatsApp abaixo:</p>
+        <textarea id="texto-importacao" rows="10" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: monospace;" placeholder="Ex: A01 CORE C/ARO R$65,00..."></textarea>
+        
+        <div style="margin-top: 15px; text-align: right;">
+          <button id="btn-processar-importacao" class="btn" style="background: #d32f2f; color: white; padding: 12px 25px;">
+            🚀 Calcular e Atualizar Preços
+          </button>
+        </div>
+
+        <div id="log-importacao" style="margin-top: 20px; max-height: 200px; overflow-y: auto; background: #f9f9f9; padding: 10px; border: 1px solid #eee; font-size: 0.85rem; display: none;"></div>
       </div>
     </div>
 
