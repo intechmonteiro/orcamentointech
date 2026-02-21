@@ -14,7 +14,7 @@ import { adicionarAoCarrinho, removerDoCarrinho, limparCarrinho, restaurarCarrin
 import { gerarPDF, enviarWhatsApp, atualizarDashboard } from "./acoes.js";
 
 
-// ================= 1. CARREGAR DADOS (O que você me mandou) ================= //
+// ================= 1. CARREGAR DADOS (FIREBASE) ================= //
 export async function carregarDados() {
   mostrarLoading();
   try {
@@ -22,9 +22,6 @@ export async function carregarDados() {
     if (!querySnapshot.empty) {
       console.log("🔥 Carregando dados do Firebase...");
       processarDadosFirebase(querySnapshot);
-    } else {
-      console.warn("⚠️ Firebase vazio. Usando CSV...");
-      await carregarDoCSV();
     }
   } catch (error) {
     console.error("Erro ao carregar dados:", error);
@@ -71,28 +68,16 @@ function processarDadosFirebase(snapshot) {
   montarHomeEAbas(); 
 }
 
-async function carregarDoCSV() {
-  try {
-    const resp = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vTLVINumL_bd-huXi3YRvNVit0IjNSijek8TJLrXYsX1uIEwr-UogRTacUkz0cgvkA1ikSPWqymGzw4/pub?output=csv");
-    if (!resp.ok) throw new Error("Falha no fetch");
-    const csvText = await resp.text();
-    console.log("CSV carregado (Backup).");
-  } catch (e) {
-    console.error("Erro no CSV fallback:", e);
-  }
-}
 
-
-// ================= 2. INICIALIZAÇÃO E CLIQUES (O Cérebro) ================= //
+// ================= 2. INICIALIZAÇÃO E CLIQUES (O CÉREBRO) ================= //
 async function inicializarApp() {
-  await carregarDados(); // Puxa do Firebase
-  restaurarCarrinho();   // Puxa o carrinho salvo
+  await carregarDados(); 
+  restaurarCarrinho();   
 
-  // Liga os eventos visuais
   configurarSidebarToggle();
   configurarBusca();
 
-  // Escuta TODOS os cliques na tela
+  // 👉 RASTREADOR GLOBAL DE CLIQUES (BLINDADO)
   document.addEventListener("click", (e) => {
     
     // 🛒 ADICIONAR ITEM AO CARRINHO
@@ -110,52 +95,82 @@ async function inicializarApp() {
       atualizarSidebar();
     }
 
-    // 📱 ABRIR MODAL DE PDF OU WHATSAPP
-    if (e.target.id === "btn-gerar-pdf" || e.target.id === "btn-open-wa") {
-      if (carrinho.length === 0) return alert("Seu orçamento está vazio!");
-      const modal = document.getElementById("modal-orcamento");
-      modal.dataset.acaoPendente = e.target.id; 
-      modal.classList.remove("hidden");
-    }
-
-    // ✅ CONFIRMAR NOME E PAGAMENTO (Dispara o WA ou PDF)
-    if (e.target.id === "btn-confirmar-orcamento") {
-      const nome = document.getElementById("cliente-nome").value;
-      const pagamento = document.getElementById("forma-pagamento").value;
-      const parcelas = document.getElementById("parcelas").value || "1";
-
-      if (!nome || !pagamento) return alert("Preencha o nome e a forma de pagamento!");
-
-      const dadosCliente = { nome, pagamento, parcelas };
-      const acao = document.getElementById("modal-orcamento").dataset.acaoPendente;
-
-      if (acao === "btn-gerar-pdf") gerarPDF(carrinho, dadosCliente);
-      else enviarWhatsApp(carrinho, dadosCliente);
-
-      document.getElementById("modal-orcamento").classList.add("hidden");
-      document.getElementById("cliente-nome").value = "";
-    }
-
-    // ❌ FECHAR MODAIS
-    if (e.target.classList.contains("close-btn") || e.target.id === "modal-orcamento-fechar") {
-      const modal = e.target.closest(".modal");
-      if (modal) modal.classList.add("hidden");
-    }
-
     // 🧹 LIMPAR CARRINHO
-    if (e.target.id === "btn-clear-cart") {
+    if (e.target.id === "btn-clear-cart" || e.target.closest("#btn-clear-cart")) {
       if(confirm("Deseja limpar o orçamento atual?")) {
         limparCarrinho();
         atualizarSidebar();
       }
     }
 
-    // ⚙️ ABRIR E LOGAR NO ADMIN
-    if (e.target.id === "abrir-admin") document.getElementById("modal-login").classList.remove("hidden");
+// 📄 ABRIR MODAL PARA GERAR PDF
+    if (e.target.closest("#btn-gerar-pdf")) {
+      if (carrinho.length === 0) return alert("Seu orçamento está vazio!");
+      const modal = document.getElementById("modal-orcamento");
+      modal.dataset.acaoPendente = "btn-gerar-pdf"; 
+      modal.classList.remove("hidden"); // O CSS agora cuida do resto!
+    }
+
+    // 🚀 ABRIR MODAL PARA WHATSAPP
+    if (e.target.closest("#btn-open-wa")) {
+      if (carrinho.length === 0) return alert("Seu orçamento está vazio!");
+      const modal = document.getElementById("modal-orcamento");
+      modal.dataset.acaoPendente = "btn-open-wa"; 
+      modal.classList.remove("hidden");
+    }
     
-    if (e.target.id === "btn-entrar-admin") {
+    // ⚙️ ABRIR MODAL ADMIN
+    if (e.target.closest("#abrir-admin")) {
+      document.getElementById("modal-login").classList.remove("hidden");
+    }
+    
+    // ✅ CONFIRMAR ORÇAMENTO E GERAR
+    if (e.target.closest("#btn-confirmar-orcamento")) {
+      const nome = document.getElementById("cliente-nome").value;
+      const pagamento = document.getElementById("forma-pagamento").value;
+      const parcelas = document.getElementById("parcelas").value || "1";
+
+      if (!nome || !pagamento) {
+        alert("Por favor, preencha o nome do cliente e a forma de pagamento!");
+        return;
+      }
+
+      const dadosCliente = { nome, pagamento, parcelas };
+      const modal = document.getElementById("modal-orcamento");
+      const acao = modal.dataset.acaoPendente;
+
+      // Chama a função certa baseada no botão que foi clicado antes
+      if (acao === "btn-gerar-pdf") {
+        gerarPDF(carrinho, dadosCliente);
+      } else {
+        enviarWhatsApp(carrinho, dadosCliente);
+      }
+
+      // Fecha o modal após gerar
+      modal.classList.add("hidden");
+      modal.style.display = "none";
+      document.getElementById("cliente-nome").value = "";
+    }
+
+    // ❌ FECHAR MODAL NO X
+    if (e.target.closest("#modal-orcamento-fechar")) {
+      const modal = document.getElementById("modal-orcamento");
+      modal.classList.add("hidden");
+      modal.style.display = "none";
+    }
+
+    // ⚙️ LOGIN ADMIN
+    if (e.target.closest("#abrir-admin")) {
+      const modal = document.getElementById("modal-login");
+      modal.classList.remove("hidden");
+      modal.style.display = "flex";
+      modal.style.zIndex = "9999";
+    }
+    
+    if (e.target.closest("#btn-entrar-admin")) {
       if (document.getElementById("input-senha-admin").value === "1322") {
         document.getElementById("modal-login").classList.add("hidden");
+        document.getElementById("modal-login").style.display = "none";
         document.getElementById("painel-admin").classList.remove("hidden");
         iniciarEditorPrecos(); 
         if(typeof atualizarDashboard === "function") atualizarDashboard();
@@ -163,26 +178,34 @@ async function inicializarApp() {
         alert("Senha incorreta!");
       }
     }
+
+    if (e.target.closest("#btn-fechar-login")) {
+      const modal = document.getElementById("modal-login");
+      modal.classList.add("hidden");
+      modal.style.display = "none";
+    }
     
     // 🚪 SAIR DO ADMIN
-    if (e.target.id === "btn-sair-admin") {
+    if (e.target.closest("#btn-sair-admin")) {
       document.getElementById("painel-admin").classList.add("hidden");
     }
   });
 
-  // Mostra campo de parcelas se for Cartão de Crédito
+  // Mostra parcelas só se for Crédito
   document.getElementById("forma-pagamento")?.addEventListener("change", (e) => {
     const parcelas = document.getElementById("parcelas");
-    if (e.target.value === "Credito") parcelas.classList.remove("hidden");
-    else parcelas.classList.add("hidden");
+    if (e.target.value === "Credito") {
+      parcelas.classList.remove("hidden");
+    } else {
+      parcelas.classList.add("hidden");
+    }
   });
 }
 
-// Inicia tudo quando a página carrega
 window.addEventListener("DOMContentLoaded", inicializarApp);
 
 
-// ================= 3. EDITOR DE PREÇOS (O que você me mandou) ================= //
+// ================= 3. EDITOR DE PREÇOS (PAINEL ADMIN) ================= //
 export function iniciarEditorPrecos() {
   const containerLista = document.getElementById("lista-editor-produtos");
   const containerAbas = document.getElementById("admin-brand-tabs");

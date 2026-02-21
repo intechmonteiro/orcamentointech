@@ -1,5 +1,5 @@
 // ======================================================== //
-// acoes.js - PDF, WhatsApp e Dashboard
+// acoes.js - PDF, WhatsApp e Dashboard (Versão Blindada)
 // ======================================================== //
 
 import { salvarOrcamento, obterHistorico } from "./storage.js"; 
@@ -50,7 +50,7 @@ export async function enviarWhatsApp(carrinho, dadosCliente) {
   mensagem += `\n_Validade: 7 dias_\n_Monteiro Intech_`;
 
   const texto = encodeURIComponent(mensagem.trim());
-  const telefone = "55997005039"; 
+  const telefone = "55997005039"; //
   const url = `https://wa.me/${telefone}?text=${texto}`;
 
   window.open(url, "_blank");
@@ -80,8 +80,7 @@ export async function gerarPDF(carrinho, dadosCliente) {
   const totalBase = carrinho.reduce((soma, item) => soma + item.preco * item.qtd, 0);
   const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
 
-  // CABEÇALHO
-  doc.setFillColor(...azulMonteiro);
+    doc.setFillColor(...azulMonteiro);
   doc.rect(0, 0, 210, 40, 'F'); 
 
   doc.setTextColor(255, 255, 255);
@@ -93,94 +92,105 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.setFont("helvetica", "normal");
   doc.text("Assistência Técnica Especializada", 20, 32);
 
-  // ENDEREÇO OFICIAL
+  // --- ENDEREÇO E CONTATO ---
   doc.setFontSize(9);
-  doc.text("Rua Paulo Gelson Padilha, 58", 140, 20);
-  doc.text("Menino Deus - Porto Alegre/RS", 140, 25);
-  doc.text("WhatsApp: (55) 99700-5039", 140, 30);
+  doc.text("Rua Paulo Gelson Padilha, 58", 140, 20); //
+  doc.text("Menino Deus - Salto do Jacuí/RS", 140, 25); //
+  doc.text("WhatsApp: (55) 99700-5039", 140, 30); //
 
-  // DADOS DO CLIENTE
+  // --- DADOS DO CLIENTE ---
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("ORÇAMENTO DE SERVIÇOS", 20, 55);
+  doc.text("ORÇAMENTO DE SERVIÇO", 20, 55);
   
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.text(`Nº: ${numeroOrcamento}`, 170, 55);
-  
   doc.text(`Cliente: ${dadosCliente.nome}`, 20, 65);
-  doc.text(`Forma de Pagamento: ${dadosCliente.pagamento}`, 20, 72);
+  doc.text(`Pagamento: ${dadosCliente.pagamento}`, 20, 72);
 
   doc.setDrawColor(200, 200, 200);
   doc.line(20, 77, 190, 77);
 
-  // TABELA DE ITENS
+  // --- TABELA DE ITENS ---
   let y = 90;
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text("Qtd", 20, 85);
-  doc.text("Descrição do Aparelho / Serviço", 35, 85);
-  doc.text("Preço", 170, 85);
+  doc.text("Descrição do Serviço / Peça", 35, 85);
+  doc.text("Valor", 175, 85);
 
   doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "normal");
-
   carrinho.forEach((item) => {
     doc.text(`${item.qtd}x`, 20, y);
     doc.text(`${item.modelo} - ${item.nome}`, 35, y);
-    doc.text(formatBR(item.preco * item.qtd), 170, y);
-    y += 10;
+    doc.text(formatBR(item.preco * item.qtd), 175, y);
+    y += 8;
   });
 
-  // TOTAL
-  y += 10;
+  // --- TOTAIS ---
+  y += 5;
   doc.setDrawColor(...azulMonteiro);
-  doc.setLineWidth(1);
-  doc.line(120, y, 190, y);
-  
+  doc.line(130, y, 190, y);
   y += 10;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text("TOTAL:", 120, y);
+  doc.text("TOTAL:", 130, y);
   doc.setTextColor(...azulMonteiro);
-  doc.text(formatBR(pagamentoCalc.totalFinal), 160, y);
+  doc.text(formatBR(pagamentoCalc.totalFinal), 165, y);
 
-  if (pagamentoCalc.parcelas > 1) {
-      y += 8;
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Em ${pagamentoCalc.parcelas}x de ${formatBR(pagamentoCalc.valorParcela)} no cartão`, 120, y);
-  }
+  // --- TERMOS DE GARANTIA E CONDIÇÕES ---
+  y += 20;
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.text("TERMOS DE GARANTIA E CONDIÇÕES", 20, y);
+  
+  y += 7;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  const termos = [
+    "1. GARANTIA: 90 dias para defeitos de fabricação na peça substituída, conforme o Art. 26 do CDC.",
+    "2. PERDA DE GARANTIA: A garantia será anulada em caso de: quedas, contato com líquidos (oxidação),",
+    "   esmagamento, selo de garantia rompido ou intervenção técnica por terceiros não autorizados.",
+    "3. PRAZO DE VALIDADE: Este orçamento é válido por 7 (sete) dias a contar da data de emissão.",
+    "4. RETIRADA: Aparelhos não retirados em até 90 dias após o aviso de prontidão serão considerados",
+    "   abandonados e poderão ser vendidos para custear as despesas do reparo (Art. 1.275 do Código Civil).",
+    "5. RESPONSABILIDADE: A Monteiro Intech não se responsabiliza por perda de dados. Faça backup antes do reparo."
+  ];
+  
+  termos.forEach(linha => {
+    doc.text(linha, 20, y);
+    y += 5;
+  });
 
-  // RODAPÉ
-  const dataAjustada = new Date().toLocaleDateString('pt-BR');
+  // --- ASSINATURAS ---
+  y += 15;
+  doc.line(20, y, 90, y);
+  doc.line(120, y, 190, y);
+  y += 5;
+  doc.text("Assinatura do Cliente", 40, y);
+  doc.text("Responsável Monteiro Intech", 140, y);
+
+  // --- RODAPÉ ---
+  doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "italic");
-  doc.text(`Orçamento válido por 7 dias. Gerado em: ${dataAjustada}`, 20, 280);
+  const dataH = new Date().toLocaleDateString('pt-BR');
+  doc.text(`Documento gerado em ${dataH} via sistema Monteiro Intech.`, 105, 285, { align: "center" });
 
-  // SALVAR NO BANCO
+  // --- SALVAR ---
   const pdfBase64 = doc.output("datauristring");
-
   await salvarOrcamento({
     id: crypto.randomUUID(),
     numero: numeroOrcamento,
     cliente: dadosCliente.nome,
     pagamento: dadosCliente.pagamento,
-    parcelas: pagamentoCalc.parcelas,
     total: pagamentoCalc.totalFinal,
     data: new Date().toISOString(),
     itens: carrinho,
     pdf: pdfBase64
   });
 
-  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
-
-  // DOWNLOAD
-  const nomeArquivo = `Orcamento_${dadosCliente.nome.replace(/\s+/g, '_')}_${numeroOrcamento}.pdf`;
-  doc.save(nomeArquivo);
+  doc.save(`Orcamento_${dadosCliente.nome}_${numeroOrcamento}.pdf`);
 }
 
 // ================= ATUALIZAR DASHBOARD ================== //
@@ -214,4 +224,6 @@ export async function atualizarDashboard() {
   const elDebito = document.getElementById("dash-debito");
   if (elDebito) elDebito.textContent = formatBR(debito);
 }
+
+// Vincula ao window para uso global
 window.atualizarDashboard = atualizarDashboard;
