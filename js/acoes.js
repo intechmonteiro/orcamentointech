@@ -1,26 +1,21 @@
-//----------- PDF E WHATSAPP -----------//
+// ======================================================== //
+// acoes.js - PDF, WhatsApp e Dashboard
+// ======================================================== //
 
-const { jsPDF } = window.jspdf;
-import { carrinho } from './state.js';
-import { salvarOrcamento, obterHistorico } from "./storage.js";
+import { salvarOrcamento, obterHistorico } from "./storage.js"; 
+import { formatBR } from "./utils.js"; 
 
-function adicionarMarcaDagua(doc, logo) {
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+// ================= CÁLCULO DE PAGAMENTO ================= //
+function calcularPagamento(total, dadosCliente) {
+  const TAXA = 0.0652; // 6,52% no crédito
+  const pagamento = (dadosCliente.pagamento || "").toLowerCase();
+  const parcelas = parseInt(dadosCliente.parcelas || "1", 10);
+  
+  const temJuros = pagamento.includes("credito");
+  const totalFinal = temJuros ? total * (1 + TAXA) : total;
+  const valorParcela = parcelas > 1 ? totalFinal / parcelas : null;
 
-  const largura = 120;
-  const altura = 90;
-
-  const x = (pageWidth - largura) / 2;
-  const y = (pageHeight - altura) / 2;
-
-  // Transparência
-  doc.saveGraphicsState();
-  doc.setGState(new doc.GState({ opacity: 0.08 }));
-
-  doc.addImage(logo, "PNG", x, y, largura, altura);
-
-  doc.restoreGraphicsState();
+  return { totalOriginal: total, totalFinal, parcelas, valorParcela, temJuros };
 }
 
 function gerarNumeroOrcamento() {
@@ -32,66 +27,35 @@ function gerarNumeroOrcamento() {
 }
 
 // ================= ENVIAR WHATSAPP ================== //
-
-export function enviarWhatsApp(carrinho, dadosCliente) {
-  const totalBase = carrinho.reduce(
-    (soma, item) => soma + item.preco * item.qtd,
-    0
-  );
-
-  // Usa a mesma regra do PDF
+export async function enviarWhatsApp(carrinho, dadosCliente) {
+  const totalBase = carrinho.reduce((soma, item) => soma + item.preco * item.qtd, 0);
   const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
 
-  let mensagem = `
-ORÇAMENTO - MONTEIRO INTECH
+  let mensagem = `*ORÇAMENTO - MONTEIRO INTECH*\n\n`;
+  mensagem += `👤 *Cliente:* ${dadosCliente.nome}\n`;
+  mensagem += `💳 *Pagamento:* ${dadosCliente.pagamento}\n\n`;
 
-Cliente: ${dadosCliente.nome}
-Pagamento: ${dadosCliente.pagamento}
-`;
-
-  // 👉 Se tiver parcelamento, mostra parcelas + valor + acréscimo
   if (pagamentoCalc.parcelas && pagamentoCalc.valorParcela) {
-    mensagem += `
-Parcelamento: ${pagamentoCalc.parcelas}x de ${pagamentoCalc.valorParcela.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    })}
-Total com acréscimo: ${pagamentoCalc.totalFinal.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    })}
-`;
+    mensagem += `*Parcelamento:* ${pagamentoCalc.parcelas}x de ${formatBR(pagamentoCalc.valorParcela)}\n`;
+    mensagem += `*Total com acréscimo:* ${formatBR(pagamentoCalc.totalFinal)}\n\n`;
   } else {
-    mensagem += `
-Total: ${pagamentoCalc.totalFinal.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL"
-    })}
-`;
+    mensagem += `*Total:* ${formatBR(pagamentoCalc.totalFinal)}\n\n`;
   }
 
-  mensagem += `
-Itens:
-`;
-
+  mensagem += `*Itens do Orçamento:*\n`;
   carrinho.forEach(item => {
-    mensagem += `${item.qtd}x ${item.marca} ${item.modelo} - ${item.nome}\n`;
+    mensagem += `▸ ${item.qtd}x ${item.modelo} - ${item.nome}\n`;
   });
 
-  mensagem += `
-Validade: 7 dias
-Monteiro Intech
-`;
+  mensagem += `\n_Validade: 7 dias_\n_Monteiro Intech_`;
 
   const texto = encodeURIComponent(mensagem.trim());
-  const telefone = "55997005039"; // seu número
+  const telefone = "55997005039"; 
   const url = `https://wa.me/${telefone}?text=${texto}`;
 
   window.open(url, "_blank");
 
-  // ================= SALVAR NO HISTÓRICO (WHATSAPP) ================= //
-
-  salvarOrcamento({
+  await salvarOrcamento({
     id: crypto.randomUUID(),
     numero: gerarNumeroOrcamento(),
     cliente: dadosCliente.nome,
@@ -100,379 +64,154 @@ Monteiro Intech
     total: pagamentoCalc.totalFinal,
     data: new Date().toISOString(),
     itens: carrinho,
-    origem: "WhatsApp",   // 👈 identifica a origem
-    pdf: null             // 👈 não existe PDF nesse caso
+    pdf: null 
   });
+
+  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
 }
 
-// =============== CÁLCULO DE PAGAMENTO =============== //
-
-function calcularPagamento(total, dadosCliente) {
-  const TAXA = 0.0652;
-
-  const pagamento = dadosCliente.pagamento.toLowerCase();
-  const parcelas = parseInt(dadosCliente.parcelas || "1");
-
-  // 👉 Cartão crédito SEMPRE tem juros (mesmo 1x)
-  const temJuros = pagamento.includes("credito");
-
-  const totalComJuros = temJuros ? total * (1 + TAXA) : total;
-  const valorParcela = parcelas > 1 ? totalComJuros / parcelas : null;
-
-  return {
-    totalOriginal: total,
-    totalFinal: totalComJuros,
-    parcelas,
-    valorParcela,
-    temJuros
-  };
-}
-
-// ===================== DASHBOARD ==================== //
-
-export function atualizarDashboard() {
-  console.log("🔥 atualizarDashboard FOI CHAMADA");
-
-  const historico = obterHistorico();
-
-  const qtd = historico.length;
-
-  let total = 0;
-  let pix = 0;
-  let credito = 0;
-  let debito = 0;
-
-  historico.forEach(reg => {
-    const forma = (reg.pagamento || "").toLowerCase();
-    const valor = Number(reg.total) || 0;
-
-    total += valor;
-
-    if (forma.includes("pix")) pix += valor;
-    if (forma.includes("credito")) credito += valor;
-    if (forma.includes("debito")) debito += valor;
-  });
-
-  const ticket = qtd ? total / qtd : 0;
-
-  document.getElementById("dash-qtd").textContent = qtd;
-  document.getElementById("dash-total").textContent = total.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-  document.getElementById("dash-ticket").textContent = ticket.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-  document.getElementById("dash-pix").textContent = pix.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-  document.getElementById("dash-credito").textContent = credito.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-  document.getElementById("dash-debito").textContent = debito.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-}
-
-//==================== GERAR PDF ==================== //
-
-export function gerarPDF(carrinho, dadosCliente) {
+// ================= GERAR PDF ================== //
+export async function gerarPDF(carrinho, dadosCliente) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
-  let y = 15;
-
-  // ================= LOGO ================= //
-
-  const logo = new Image();
-  logo.src = "/assets/logo.png";
-
-  // ================= DATAS ================= //
-
-  const dataGeracao = new Date();
-  const validade = new Date();
-  validade.setDate(dataGeracao.getDate() + 7);
-
-  const dataFormatada = dataGeracao.toLocaleDateString("pt-BR");
-  const validadeFormatada = validade.toLocaleDateString("pt-BR");
+  const azulMonteiro = [0, 74, 173]; 
 
   const numeroOrcamento = gerarNumeroOrcamento();
+  const totalBase = carrinho.reduce((soma, item) => soma + item.preco * item.qtd, 0);
+  const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
 
-  logo.onload = () => {
+  // CABEÇALHO
+  doc.setFillColor(...azulMonteiro);
+  doc.rect(0, 0, 210, 40, 'F'); 
 
-    // ================= MARCA D'ÁGUA =================//
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("MONTEIRO INTECH", 20, 25);
 
-    adicionarMarcaDagua(doc, logo);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Assistência Técnica Especializada", 20, 32);
 
-    //================== Cabeçalho ====================//
+  // ENDEREÇO OFICIAL
+  doc.setFontSize(9);
+  doc.text("Rua Paulo Gelson Padilha, 58", 140, 20);
+  doc.text("Menino Deus - Porto Alegre/RS", 140, 25);
+  doc.text("WhatsApp: (55) 99700-5039", 140, 30);
 
-    doc.setFillColor(13, 71, 161);
-    doc.rect(0, 0, 210, 30, "F");
-    doc.addImage(logo, "PNG", 15, 6, 24, 18);
+  // DADOS DO CLIENTE
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("ORÇAMENTO DE SERVIÇOS", 20, 55);
+  
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Nº: ${numeroOrcamento}`, 170, 55);
+  
+  doc.text(`Cliente: ${dadosCliente.nome}`, 20, 65);
+  doc.text(`Forma de Pagamento: ${dadosCliente.pagamento}`, 20, 72);
 
-    doc.setTextColor(255);
-    doc.setFontSize(18);
-    doc.text("ORÇAMENTO", 200, 18, { align: "right" });
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, 77, 190, 77);
 
-    // ==================== INFO TOPO ===================//
+  // TABELA DE ITENS
+  let y = 90;
+  doc.setFontSize(11);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Qtd", 20, 85);
+  doc.text("Descrição do Aparelho / Serviço", 35, 85);
+  doc.text("Preço", 170, 85);
 
-    y = 40;
-    doc.setTextColor(0);
-    doc.setFontSize(11);
-    doc.text(`Orçamento Nº: ${numeroOrcamento}`, 15, y);
-    doc.text(`Data: ${dataFormatada}`, 150, y);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("helvetica", "normal");
 
-    y += 8;
-    doc.text(`Validade: ${validadeFormatada}`, 15, y);
-
-    // ===================== CLIENTE =====================//
-
-    y += 12;
-    doc.setFontSize(13);
-    doc.setTextColor(13, 71, 161);
-    doc.text("Dados do Cliente", 15, y);
-
-    y += 6;
-    doc.setDrawColor(220);
-    doc.line(15, y, 195, y);
-
-    y += 8;
-    doc.setFontSize(11);
-    doc.setTextColor(0);
-    doc.text(`Nome: ${dadosCliente.nome}`, 15, y);
-
-    // ====================== PAGAMENTO ======================//
-    y += 12;
-    doc.setFontSize(13);
-    doc.setTextColor(13, 71, 161);
-    doc.text("Forma de Pagamento", 15, y);
-
-    y += 6;
-    doc.setDrawColor(220);
-    doc.line(15, y, 195, y);
-
-    y += 8;
-    doc.setFontSize(11);
-    doc.setTextColor(0);
-    doc.text(`Método: ${dadosCliente.pagamento}`, 15, y);
-
-    // ===================== SERVIÇOS ====================== //
-    y += 14;
-    doc.setFontSize(13);
-    doc.setTextColor(13, 71, 161);
-    doc.text("Serviços Orçados", 15, y);
-
-    y += 8;
-    doc.setDrawColor(180);
-    doc.line(15, y, 195, y);
-
-    y += 8;
-    doc.setFontSize(11);
-    doc.setTextColor(0);
-
-    // ==================== TABELA DE SERVIÇOS ==================== //
-    y += 6;
-
-    // Cabeçalho da tabela
-    doc.setFillColor(230, 240, 255);
-    doc.rect(15, y, 180, 8, "F");
-
-    doc.setFontSize(10);
-    doc.setTextColor(13, 71, 161);
-    doc.text("QTD", 18, y + 5);
-    doc.text("DESCRIÇÃO", 35, y + 5);
-    doc.text("UNIT.", 150, y + 5, { align: "right" });
-    doc.text("TOTAL", 190, y + 5, { align: "right" });
-
+  carrinho.forEach((item) => {
+    doc.text(`${item.qtd}x`, 20, y);
+    doc.text(`${item.modelo} - ${item.nome}`, 35, y);
+    doc.text(formatBR(item.preco * item.qtd), 170, y);
     y += 10;
+  });
 
-    doc.setFontSize(10);
-    doc.setTextColor(0);
+  // TOTAL
+  y += 10;
+  doc.setDrawColor(...azulMonteiro);
+  doc.setLineWidth(1);
+  doc.line(120, y, 190, y);
+  
+  y += 10;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("TOTAL:", 120, y);
+  doc.setTextColor(...azulMonteiro);
+  doc.text(formatBR(pagamentoCalc.totalFinal), 160, y);
 
-    let total = 0;
+  if (pagamentoCalc.parcelas > 1) {
+      y += 8;
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Em ${pagamentoCalc.parcelas}x de ${formatBR(pagamentoCalc.valorParcela)} no cartão`, 120, y);
+  }
 
-    carrinho.forEach(item => {
-      const subtotal = item.preco * item.qtd;
+  // RODAPÉ
+  const dataAjustada = new Date().toLocaleDateString('pt-BR');
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "italic");
+  doc.text(`Orçamento válido por 7 dias. Gerado em: ${dataAjustada}`, 20, 280);
 
-      const descricao = `${item.marca || ""} ${item.modelo || ""} - ${item.nome}`;
-      const unitario = item.preco.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-      });
-      const totalItem = subtotal.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-      });
+  // SALVAR NO BANCO
+  const pdfBase64 = doc.output("datauristring");
 
-      // Quebra de página automática
-      if (y > 260) {
-        doc.addPage();
-        adicionarMarcaDagua(doc, logo);
-        y = 20;
-      }
+  await salvarOrcamento({
+    id: crypto.randomUUID(),
+    numero: numeroOrcamento,
+    cliente: dadosCliente.nome,
+    pagamento: dadosCliente.pagamento,
+    parcelas: pagamentoCalc.parcelas,
+    total: pagamentoCalc.totalFinal,
+    data: new Date().toISOString(),
+    itens: carrinho,
+    pdf: pdfBase64
+  });
 
-      // Colunas
-      doc.text(`${item.qtd}x`, 18, y);
-      doc.text(descricao, 35, y, { maxWidth: 105 });
-      doc.text(unitario, 150, y, { align: "right" });
-      doc.text(totalItem, 190, y, { align: "right" });
+  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
 
-      y += 7;
-      total += subtotal;
-    });
-
-    // ===================== TOTAL ===================== //
-    const pagamentoCalc = calcularPagamento(total, dadosCliente);
-
-    y += 10;
-    doc.setFillColor(240, 248, 255);
-    doc.rect(120, y - 6, 75, 14, "F");
-
-    doc.setFontSize(14);
-    doc.setTextColor(13, 71, 161);
-    doc.text("TOTAL:", 125, y + 4);
-
-    doc.text(
-      pagamentoCalc.totalFinal.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL"
-      }),
-      190,
-      y + 4,
-      { align: "right" }
-    );
-
-    // ===================== PARCELAMENTO ===================== //
-    if (pagamentoCalc.valorParcela) {
-      y += 12;
-      doc.setFontSize(11);
-      doc.setTextColor(0);
-      doc.text(
-        `Parcelamento: ${pagamentoCalc.parcelas}x de ${pagamentoCalc.valorParcela.toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL"
-        })}`,
-        15,
-        y
-      );
-    }
-
-    // ======================= TERMOS ======================== //
-
-    y += 18;
-
-    const termos = [
-      "TERMO E CONDIÇÕES",
-      "• Este orçamento possui validade de 7 dias a partir da data de emissão.",
-      "• Valores e disponibilidade de peças estão sujeitos a alteração sem aviso prévio.",
-      "• Serviços somente serão iniciados após aprovação do orçamento.",
-      "• Garantia conforme Código de Defesa do Consumidor.",
-      "• Prazo de execução poderá variar conforme disponibilidade de peças.",
-      "• Pagamentos em cartão de crédito possuem acréscimo de juros.",
-      "• Não nos responsabilizamos por dados armazenados no aparelho do cliente."
-    ];
-
-    doc.setFontSize(9);
-    doc.setTextColor(90);
-
-    termos.forEach((linha, index) => {
-      // Quebra de página automática
-      if (y > 270) {
-        doc.addPage();
-        adicionarMarcaDagua(doc, logo);
-        y = 20;
-      }
-
-      // Título em destaque
-      if (index === 0) {
-        doc.setFontSize(11);
-        doc.setTextColor(13, 71, 161);
-        doc.text(linha, 15, y);
-        y += 6;
-        doc.setFontSize(9);
-        doc.setTextColor(90);
-      } else {
-        doc.text(linha, 15, y, { maxWidth: 180 });
-        y += 5;
-      }
-    });
-
-    // ====================== RODAPÉ ====================== //
-
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(
-      "Monteiro Intech • WhatsApp: (55) 99700-5039 • Instagram: @intech.monteiro",
-      105,
-      290,
-      { align: "center" }
-    );
-
-    // ================= SALVAR ================= //
-
-    const pdfBase64 = doc.output("datauristring");
-
-    console.log("🚀 Enviando para salvarOrcamento", {
-      numero: numeroOrcamento,
-      pdf: pdfBase64?.length
-    });
-
-    salvarOrcamento({
-      id: crypto.randomUUID(),
-      numero: numeroOrcamento,
-      cliente: dadosCliente.nome,
-      pagamento: dadosCliente.pagamento,
-      parcelas: pagamentoCalc.parcelas,
-      total: pagamentoCalc.totalFinal,
-      data: new Date().toISOString(),
-      itens: carrinho,
-      pdf: pdfBase64
-    });
-
-    setTimeout(() => {
-      if (document.getElementById("painel-admin")?.classList.contains("hidden") === false) {
-        atualizarDashboard();
-        carregarRelatorio();
-      }
-    }, 300);
-
-    // ================= SALVAR OU COMPARTILHAR ================= //
-    
-    // Formata o nome do arquivo, removendo espaços para não dar erro no celular
-    const nomeArquivo = `Orcamento_${dadosCliente.nome.replace(/\s+/g, '_')}_${numeroOrcamento}.pdf`;
-    
-    // Verifica se o cliente está usando um dispositivo móvel (celular/tablet)
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      try {
-        const pdfBlob = doc.output('blob');
-        const file = new File([pdfBlob], nomeArquivo, { type: 'application/pdf' });
-
-        // Tenta abrir a aba de compartilhamento nativa do sistema (ex: WhatsApp, Salvar Arquivos)
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({
-            title: 'Orçamento - Monteiro Intech',
-            text: `Orçamento para ${dadosCliente.nome}`,
-            files: [file]
-          }).catch((err) => console.log('Compartilhamento cancelado:', err));
-        } else {
-          // Se não conseguir compartilhar (celular antigo), tenta abrir em nova aba
-          window.open(URL.createObjectURL(pdfBlob), '_blank');
-        }
-      } catch (error) {
-        console.error("Erro no compartilhamento:", error);
-        // Plano de emergência se o celular travar
-        doc.save(nomeArquivo); 
-      }
-    } else {
-      // Se for no Computador (PC), baixa o arquivo direto como sempre fez
-      doc.save(nomeArquivo);
-    }
-
-  };
+  // DOWNLOAD
+  const nomeArquivo = `Orcamento_${dadosCliente.nome.replace(/\s+/g, '_')}_${numeroOrcamento}.pdf`;
+  doc.save(nomeArquivo);
 }
+
+// ================= ATUALIZAR DASHBOARD ================== //
+export async function atualizarDashboard() {
+  const historico = await obterHistorico();
+  if (!historico.length) return;
+
+  const qtd = historico.length;
+  const total = historico.reduce((sum, reg) => sum + (reg.total || 0), 0);
+  const ticketMedio = qtd > 0 ? total / qtd : 0;
+
+  const pix = historico.filter(r => r.pagamento === "PIX").reduce((sum, r) => sum + r.total, 0);
+  const credito = historico.filter(r => r.pagamento === "Credito").reduce((sum, r) => sum + r.total, 0);
+  const debito = historico.filter(r => r.pagamento === "Debito").reduce((sum, r) => sum + r.total, 0);
+
+  const elQtd = document.getElementById("dash-qtd");
+  if (elQtd) elQtd.textContent = qtd;
+  
+  const elTotal = document.getElementById("dash-total");
+  if (elTotal) elTotal.textContent = formatBR(total);
+  
+  const elTicket = document.getElementById("dash-ticket");
+  if (elTicket) elTicket.textContent = formatBR(ticketMedio);
+  
+  const elPix = document.getElementById("dash-pix");
+  if (elPix) elPix.textContent = formatBR(pix);
+  
+  const elCredito = document.getElementById("dash-credito");
+  if (elCredito) elCredito.textContent = formatBR(credito);
+  
+  const elDebito = document.getElementById("dash-debito");
+  if (elDebito) elDebito.textContent = formatBR(debito);
+}
+window.atualizarDashboard = atualizarDashboard;

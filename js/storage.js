@@ -1,153 +1,108 @@
-//------------------------------ CONEXÃO PARA O SALVAR NA NUVEM ------------------------------//
+// ======================================================== //
+// storage.js - Armazenamento na nuvem (Firestore)
+// ======================================================== //
+import { db } from './firebase.js'; 
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-import { collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-import { db } from "./firebase.js";
+const COLLECTION_NAME = "orcamentos";
 
-// Cache local para o sistema continuar rápido
-let historicoCache = [];
-
-// ================= FUNÇÃO VISUAL (QUE ESTAVA FALTANDO) ================= //
-
-export function carregarRelatorio() {
-  const lista = document.getElementById("relatorio-lista");
-  if (!lista) return;
-
-  // Limpa a lista atual
-  lista.innerHTML = "";
-
-  if (historicoCache.length === 0) {
-    lista.innerHTML = "<p>Nenhum orçamento encontrado na nuvem.</p>";
-    return;
-  }
-
-  // Desenha os itens na tela
-  historicoCache.forEach(item => {
-    const div = document.createElement("div");
-    div.classList.add("relatorio-item");
-    div.style.borderBottom = "1px solid #eee";
-    div.style.padding = "10px 0";
-    
-    // Tenta formatar a data, se der erro usa a data atual
-    let dataFormatada = "Data inválida";
-    try {
-        const dataObj = new Date(item.data);
-        dataFormatada = dataObj.toLocaleDateString("pt-BR") + " " + dataObj.toLocaleTimeString("pt-BR").slice(0,5);
-    } catch(e) {}
-
-    const valorFormatado = (item.total || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-    div.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <strong>${item.cliente || "Cliente"}</strong> <small style="color: #666;">(${item.numero || "S/N"})</small><br>
-          <span style="font-size: 0.9em; color: #444;">${dataFormatada} - ${item.pagamento || ""}</span>
-        </div>
-        <div style="font-weight: bold; color: #1347a1;">
-          ${valorFormatado}
-        </div>
-      </div>
-    `;
-    lista.appendChild(div);
-  });
-}
-
-// ================= LISTENER DO FIREBASE (TEMPO REAL) ================= //
-
-const q = query(collection(db, "orcamentos"), orderBy("data", "desc"));
-
-onSnapshot(q, (snapshot) => {
-  historicoCache = [];
-  snapshot.forEach((doc) => {
-    historicoCache.push({ id: doc.id, ...doc.data() });
-  });
-
-  // Atualiza a tela automaticamente assim que chegar dados novos
-  carregarRelatorio();
-  
-  // Se tiver a função de dashboard no main, chama ela também (via evento global se necessário)
-  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
-  else {
-      // Tenta despachar um evento para o main atualizar o dashboard
-      document.dispatchEvent(new Event("dadosAtualizados"));
-  }
-});
-
-// ================= AÇÕES PRINCIPAIS ================= //
-
+// 1. SALVAR NOVO ORÇAMENTO NA NUVEM
 export async function salvarOrcamento(registro) {
   try {
-    await addDoc(collection(db, "orcamentos"), registro);
-    console.log("✅ Orçamento salvo na nuvem com sucesso!");
-  } catch (erro) {
-    console.error("❌ Erro ao salvar na nuvem: ", erro);
-    alert("Erro ao salvar orçamento. Verifique sua internet.");
+    const cleanData = { 
+      ...registro, 
+      data: registro.data || serverTimestamp() 
+    };
+    
+    // Salva no banco de dados
+    const docRef = await addDoc(collection(db, COLLECTION_NAME), cleanData);
+    console.log("✅ Orçamento salvo na nuvem com ID:", docRef.id);
+
+    // Removemos o backup automático daqui para não baixar um arquivo a cada clique!
+    
+  } catch (err) {
+    console.error("Erro ao salvar:", err);
+    alert("❌ Erro ao salvar na nuvem. Verifique sua internet.");
   }
 }
 
-export function obterHistorico() {
-  return historicoCache;
+// 2. BUSCAR TODOS OS ORÇAMENTOS (Para o Dashboard)
+export async function obterHistorico() {
+  try {
+    const q = query(collection(db, COLLECTION_NAME), orderBy("data", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (err) {
+    console.error("Erro ao obter histórico:", err);
+    return []; // Retorna vazio se der erro, pra não travar a tela
+  }
 }
 
-// ================= BACKUP E EXPORTAÇÃO ================= //
-
-// Renomeado para 'salvarBackup' para bater com o main.js
-export function salvarBackup() {
-  if (historicoCache.length === 0) return alert("Nada para salvar.");
-
-  const data = new Date();
-  const timestamp = data.toISOString().replace(/[:.]/g, "-");
-  const nomeArquivo = `backup-intech-${timestamp}.json`;
-
-  const blob = new Blob([JSON.stringify(historicoCache, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = nomeArquivo;
-  link.click();
+// 3. LIMPAR HISTÓRICO DO MÊS
+export async function limparHistorico() {
+  try {
+    const snapshot = await getDocs(collection(db, COLLECTION_NAME));
+    
+    // Deleta um por um
+    const promessas = snapshot.docs.map(docSnap => deleteDoc(doc(db, COLLECTION_NAME, docSnap.id)));
+    await Promise.all(promessas);
+    
+    console.log("✅ Histórico limpo na nuvem.");
+  } catch (err) {
+    console.error("Erro ao limpar:", err);
+    alert("❌ Erro ao limpar histórico.");
+  }
 }
 
-// Ajustado para receber o Evento do input file
-export function restaurarBackup(event) {
-  const arquivo = event.target.files[0];
-  if (!arquivo) return;
+// 4. EXPORTAR BACKUP GERAL (Botão do Admin)
+export async function gerarBackupGeral() {
+  try {
+    const historico = await obterHistorico();
+    if (historico.length === 0) return alert("Nenhum dado para fazer backup.");
 
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const nomeArquivo = `backup-intech-${timestamp}.json`;
+    
+    const blob = new Blob([JSON.stringify(historico, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = nomeArquivo;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log("✅ Backup completo gerado:", nomeArquivo);
+  } catch (err) {
+    console.error("Erro ao gerar backup:", err);
+  }
+}
+
+// 5. RESTAURAR BACKUP (Botão do Admin)
+export function restaurarBackup(arquivo) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
       const dados = JSON.parse(e.target.result);
-      if (!Array.isArray(dados)) return alert("❌ Arquivo inválido.");
-
-      if(confirm(`Deseja subir ${dados.length} orçamentos antigos para a nuvem?`)) {
-          alert("⏳ Enviando para a nuvem... Aguarde.");
-          for (const item of dados) {
-            delete item.id; // Remove ID antiga para gerar nova
-            await addDoc(collection(db, "orcamentos"), item);
-          }
-          alert("✅ Importação concluída!");
+      if (!Array.isArray(dados)) {
+        return alert("❌ Arquivo de backup inválido.");
       }
+
+      // Restaura cada item
+      for (const item of dados) {
+        // Remove o ID antigo para o Firebase criar um novo sem conflitos
+        delete item.id; 
+        await salvarOrcamento(item);
+      }
+
+      alert("✅ Backup restaurado na nuvem com sucesso!");
+
+      // Tenta recarregar a tela (se as funções estiverem ativas)
+      if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
+      
     } catch (err) {
-      alert("Erro ao ler backup.");
+      alert("❌ Erro ao ler arquivo de backup.");
       console.error(err);
     }
   };
   reader.readAsText(arquivo);
-}
-
-export function exportarRelatorioExcel() {
-  if (historicoCache.length === 0) return alert("Nada para exportar.");
-
-  let csvContent = "data:text/csv;charset=utf-8,";
-  csvContent += "Numero,Data,Cliente,Pagamento,Total\n";
-
-  historicoCache.forEach(h => {
-    const dataF = new Date(h.data).toLocaleDateString("pt-BR");
-    const totalF = (h.total || 0).toFixed(2).replace(".", ",");
-    csvContent += `${h.numero},${dataF},${h.cliente},${h.pagamento},"${totalF}"\n`;
-  });
-
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "Relatorio_Vendas.csv");
-  document.body.appendChild(link);
-  link.click();
 }

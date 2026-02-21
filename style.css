@@ -1,262 +1,491 @@
+/* ================= MONTEIRO INTECH - VERSÃO LIMPA ================= */
 :root {
-  --primary: #004aad;    /* Azul Principal */
-  --secondary: #002d6b;  /* Azul Escuro */
-  --accent: #28a745;     /* Verde de Ação */
-  --bg-color: #f4f6f8;   /* Fundo Cinza Claro */
+  --primary: #004aad;
+  --secondary: #25d366; /* Verde Whats */
+  --bg: #f0f2f5;
   --white: #ffffff;
-  --text-dark: #333333;
-  --text-light: #666666;
-  --shadow: 0 4px 6px rgba(0,0,0,0.1);
-  --radius: 8px;
-}
-
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --shadow: 0 4px 15px rgba(0,0,0,0.1);
+  --transition: all 0.3s ease;
 }
 
 body {
-  background-color: var(--bg-color);
-  color: var(--text-dark);
-  padding-bottom: 80px;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg);
 }
 
-/* ================= HEADER ================= */
+/* Header Azul igual da Vercel */
 .topbar {
   background-color: var(--primary);
-  color: var(--white);
-  padding: 15px 20px;
+  padding: 15px 5%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.brand {
-  font-size: 1.4rem;
-  font-weight: bold;
-}
-
-.cart-btn {
-  background-color: rgba(255,255,255,0.2);
-  border: none;
-  color: var(--white);
-  padding: 8px 15px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.cart-btn:hover {
-  background-color: rgba(255,255,255,0.4);
-}
-
-/* ================= LOADING ================= */
-.loading {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(255,255,255,0.9);
-  z-index: 2000;
-  display: none; /* Controlado via JS */
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-.spinner {
-  width: 40px; height: 40px;
-  border: 4px solid #ccc;
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ================= ABAS (MARCAS) ================= */
-.brand-tabs-container {
-  background: white;
-  padding: 10px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 15px;
-}
-
-.brand-tabs {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.tab-btn {
-  background: #eee;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: 0.3s;
-}
-
-.tab-btn.active {
-  background: var(--primary);
-  color: white;
-  box-shadow: 0 2px 5px rgba(0,74,173,0.3);
-}
-
-/* ================= LISTA DE SERVIÇOS (ACORDEÃO PRO) ================= */
-#lista-servicos {
-  margin-top: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 20px;
-}
-
-.card {
-  background: white;
-  border-radius: 12px; /* Mais arredondado */
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06); /* Sombra suave */
-  overflow: hidden;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-/* Quando aberto, ganha destaque */
-.card.open {
-  border-color: var(--primary);
-  box-shadow: 0 4px 12px rgba(0, 74, 173, 0.15);
-}
-
-/* O Cabeçalho (Onde clica) */
-.card-header {
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  background: white;
-  user-select: none; /* Evita selecionar o texto ao clicar rápido */
-}
-
-/* Container do Título + Preço "A partir de" */
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.card h3 {
-  margin: 0;
-  color: var(--text-dark);
-  font-size: 1rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Preço "A partir de" (Pequeno) */
-.price-preview {
-  font-size: 0.85rem;
-  color: var(--primary);
-  font-weight: 500;
-}
-
-/* A Setinha (Ícone) */
-.toggle-icon {
-  font-size: 1.2rem;
-  color: #ccc;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.card.open .toggle-icon {
-  transform: rotate(180deg);
-  color: var(--primary);
-}
-
-/* A área de serviços (Animação Suave) */
-.card-services {
-  max-height: 0;
-  overflow: hidden;
-  background-color: #f8f9fa;
-  transition: max-height 0.3s ease-out; /* O segredo da suavidade */
-}
-
-.card.open .card-services {
-  max-height: 500px; /* Um valor alto o suficiente para caber tudo */
-  border-top: 1px solid #f0f0f0;
-}
-
-/* Itens da lista interna */
-.service-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.service-row:last-child { border-bottom: none; }
-
-.service-name {
-  font-size: 0.95rem;
-  color: #555;
-}
-
-/* Botão de Adicionar (Mais moderno) */
-.add-btn {
-  background: white;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.add-btn:hover {
-  background: var(--primary);
   color: white;
 }
 
-/* ================= SIDEBAR (CARRINHO) ================= */
+/* CORREÇÃO DA IMAGEM: Isso esconde o que não deve aparecer agora */
+.hidden, #painel-admin, .modal, #modal-login, #modal-orcamento {
+  display: none !important;
+}
+
+/* Sidebar do Carrinho */
 .cart-sidebar {
   position: fixed;
-  top: 0; right: -320px;
-  width: 300px;
+  top: 0;
+  right: -100%; /* Começa escondido à direita */
+  width: 350px;
   height: 100%;
   background: white;
-  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
-  transition: 0.3s;
-  z-index: 1000;
+  box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+  transition: 0.3s ease-in-out;
+  z-index: 2000;
   display: flex;
   flex-direction: column;
 }
 
 .cart-sidebar.open {
+  right: 0; /* Desliza para dentro da tela */
+}
+
+/* Busca */
+.search-container { padding: 20px; text-align: center; }
+#app-search {
+  width: 90%;
+  max-width: 600px;
+  padding: 12px 25px;
+  border-radius: 30px;
+  border: 1px solid #ddd;
+}
+/* Sidebar começa fora da tela à direita */
+.cart-sidebar {
+  position: fixed;
+  top: 0;
+  right: -100%; /* Escondido */
+  width: 350px;
+  height: 100%;
+  background: white;
+  box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+  transition: 0.3s ease-in-out; /* O segredo do movimento suave */
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quando ganha a classe 'open', ela vem para o zero */
+.cart-sidebar.open {
   right: 0;
+}
+/* ================= HEADER PREMIUM ================= */
+.topbar {
+    background-color: var(--primary);
+    padding: 15px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.brand {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -1px;
+}
+
+/* Botão Carrinho no Topo */
+.cart-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-weight: 600;
+    transition: 0.3s;
+}
+
+.cart-btn:hover {
+    background: white;
+    color: var(--primary);
+}
+
+/* ================= SIDEBAR DO CARRINHO (REFINADA) ================= */
+.cart-sidebar {
+    width: 380px;
+    background: #fff;
+    border-left: none;
+    display: flex;
+    flex-direction: column;
 }
 
 .cart-header {
-  background: var(--primary);
-  color: white;
+    background: var(--primary);
+    color: white;
+    padding: 25px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cart-header h3 { margin: 0; font-size: 1.2rem; }
+
+.cart-items {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Rodapé do Carrinho com Botões Empilhados */
+.cart-footer {
+    padding: 20px;
+    background: #f9f9f9;
+    border-top: 1px solid #eee;
+}
+
+.cart-total {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Botões de Ação */
+.btn-primary, .btn-link {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-bottom: 10px;
+    transition: 0.2s;
+}
+
+.btn-primary { 
+    background: #25d366; /* Verde WhatsApp */
+    color: white;
+    box-shadow: 0 4px 10px rgba(37, 211, 102, 0.2);
+}
+
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3); }
+
+.btn-link {
+    background: transparent;
+    color: #888;
+    font-size: 0.9rem;
+    text-decoration: underline;
+}
+
+.btn-link:hover { color: #d32f2f; }
+
+/* ================= BOTÕES E RODAPÉ DO CARRINHO ================= */
+
+.cart-footer {
+    padding: 25px 20px;
+    background: #ffffff;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Espaço entre os botões */
+}
+
+.cart-total {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 2px solid #f8f9fa;
+    padding-bottom: 15px;
+}
+
+/* Botão WhatsApp - O Principal */
+.btn-primary-wa {
+    background: #25d366;
+    color: white;
+    border: none;
+    padding: 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+}
+
+.btn-primary-wa:hover {
+    background: #20ba5a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(37, 211, 102, 0.3);
+}
+
+/* Botão PDF - Azul Monteiro Intech */
+.btn-secondary-pdf {
+    background: var(--primary); /* Azul do seu logo */
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-secondary-pdf:hover {
+    background: #003a8c; /* Um azul um pouco mais escuro no hover */
+    opacity: 0.95;
+}
+
+/* Link de Limpar Carrinho */
+.btn-clear-link {
+    background: transparent;
+    color: #a0aec0;
+    border: none;
+    font-size: 0.85rem;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 10px;
+    transition: color 0.2s;
+}
+
+.btn-clear-link:hover {
+    color: #e53e3e;
+}
+
+.cart-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 8px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.cart-btn:hover {
+    background: white;
+    color: var(--primary);
+}
+
+/* ================= AJUSTES PARA PAINEL ADMIN E EDITOR ================= */
+.painel-admin {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  padding: 20px;
+  overflow-y: auto;
+  display: block; /* Removido hidden inicial, use JS pra toggle */
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  color: var(--primary);
+}
+
+.admin-section {
+  margin-top: 30px;
+  border-top: 1px solid #ddd;
+  padding-top: 20px;
+}
+
+.editor-lista {
+  display: grid;
+  gap: 15px;
+}
+
+.editor-card {
+  background: var(--white);
+  border: 1px solid #ddd;
   padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: 0.2s;
+}
+
+.editor-card:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.editor-card h3 {
+  margin-bottom: 10px;
+  font-size: 18px;
+  color: var(--primary);
+}
+
+.input-preco {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px;
+  text-align: right;
+  width: 80px;
+  background: #f9f9f9;
+}
+
+.btn-salvar-preco {
+  width: 100%;
+  margin-top: 10px;
+  background: #28a745;
+  color: #fff;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-salvar-preco:hover {
+  background: #218838;
+}
+
+.config-import {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.config-import label {
+  font-size: 14px;
+  margin-bottom: 5px;
+  display: block;
+  color: #555;
+}
+
+#texto-importacao {
+  width: 100%;
+  height: 150px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: monospace;
+  resize: vertical;
+  background: var(--white);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+#log-importacao {
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  margin-top: 15px;
+  font-size: 13px;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.backup-area {
+  margin: 15px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ================= ABAS DE MARCA (REFINADAS) ================= */
+.brand-tabs-container {
+  background: #ffffff;
+  border-bottom: 1px solid #e0e6ee;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  padding: 0 20px;
+}
+
+.brand-tabs {
+  display: flex;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.brand-tabs::-webkit-scrollbar {
+  display: none; /* Chrome */
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  color: #555;
+  transition: 0.2s;
+}
+
+.tab-btn.active {
+  color: var(--primary);
+  border-bottom: 3px solid var(--primary);
+  font-weight: bold;
+}
+
+.tab-btn:hover {
+  color: var(--primary);
+}
+
+/* ================= OUTROS ELEMENTOS (LOADING, MODAL, ETC.) ================= */
+.loading {
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2500;
+}
+
+.modal-content {
+  background: var(--white);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-header, .modal-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -265,180 +494,66 @@ body {
 .close-btn {
   background: none;
   border: none;
-  color: white;
   font-size: 1.5rem;
   cursor: pointer;
+  color: #888;
 }
 
-.cart-items {
-  flex: 1;
-  overflow-y: auto;
-  padding: 15px;
+.close-btn:hover {
+  color: #333;
 }
 
-.cart-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #eee;
-  padding: 10px 0;
-}
-
-.cart-total {
-  padding: 15px;
-  font-size: 1.2rem;
-  font-weight: bold;
-  border-top: 1px solid #ddd;
-  background: #f9f9f9;
-}
-
-.cart-buttons {
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.btn {
-  padding: 12px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: bold;
+/* ================= RODAPÉ ================= */
+.rodape-intech {
+  background: var(--primary);
   color: white;
-  background: var(--secondary);
+  padding: 20px;
+  text-align: center;
+  margin-top: 20px;
 }
 
-.btn.whatsapp { background: #25D366; }
-.btn.danger { background: #dc3545; }
-
-/* ================= MODAL ================= */
-.modal {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  z-index: 1500;
+.social-links {
   display: flex;
   justify-content: center;
-  align-items: center;
-}
-.modal.hidden { display: none; }
-
-.modal-overlay {
-  position: absolute;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-  background: white;
-  padding: 20px;
-  border-radius: var(--radius);
-  z-index: 1600;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
-
-.modal-body {
-  display: flex;
-  flex-direction: column;
   gap: 15px;
-  margin-top: 15px;
+  margin-top: 10px;
 }
 
-.modal-body input, .modal-body select {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+.social-btn {
+  background: rgba(255,255,255,0.2);
+  padding: 10px 20px;
+  border-radius: 30px;
+  color: white;
+  text-decoration: none;
+  transition: 0.2s;
 }
 
-.modal-footer {
-  margin-top: 20px;
-  text-align: right;
-}
-
-/* ================= PAINEL ADMIN ================= */
-#painel-admin {
-  background: #eef2f5;
-  min-height: 100vh;
-  padding: 20px;
-}
-.hidden { display: none !important; }
-
-.dashboard {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.dash-card {
+.social-btn:hover {
   background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  text-align: center;
-}
-
-.dash-card h3 { font-size: 0.9rem; color: #666; margin-bottom: 5px; }
-.dash-card span { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
-
-#relatorio-lista {
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-/* Footer */
-footer {
-  text-align: center;
-  padding: 20px;
-  color: #888;
-  font-size: 0.9rem;
-}
-/* ================= ABAS DO ADMIN ================= */
-.admin-header {
-  margin-bottom: 20px;
-  border-bottom: 2px solid #ddd;
-  padding-bottom: 10px;
-}
-
-.admin-tabs {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
-
-.admin-tab-btn {
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  padding: 10px 15px;
-  font-size: 1rem;
-  font-weight: bold;
-  color: #666;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-.admin-tab-btn:hover {
   color: var(--primary);
-  background: rgba(0,0,0,0.05);
 }
 
-.admin-tab-btn.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
+.creditos {
+  font-size: 0.8rem;
+  margin-top: 10px;
+  opacity: 0.8;
 }
 
-/* Esconde abas inativas */
-.admin-tab-content {
-  animation: fadeIn 0.3s ease-in-out;
-}
+/* ================= MEDIA QUERIES (RESPONSIVO) ================= */
+@media (max-width: 768px) {
+  .cart-sidebar {
+    width: 100%;
+  }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+  .topbar {
+    padding: 10px 3%;
+  }
+
+  .brand {
+    font-size: 1.4rem;
+  }
+
+  .cart-btn {
+    padding: 8px 15px;
+  }
 }

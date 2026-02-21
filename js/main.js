@@ -1,225 +1,301 @@
-import { carregarDados, iniciarEditorPrecos, iniciarImportador } from "./database.js";
+// ================= IMPORTAÇÕES DE DADOS E BANCO ================= //
+import { db } from './firebase.js';
+import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { dados, marcas, colunasServicos } from "./dados.js"; 
 import { carrinho } from "./state.js"; 
-import { configurarSidebarToggle, montarHomeEAbas, configurarBusca, mostrarLoading, ocultarLoading } from "./ui.js";
-import { atualizarDashboard, gerarPDF, enviarWhatsApp } from "./acoes.js";
-import { salvarBackup, restaurarBackup, carregarRelatorio, exportarRelatorioExcel } from "./storage.js";
 
-// ================= FUNÇÕES DO CARRINHO ================= //
+// ================= IMPORTAÇÕES VISUAIS E AÇÕES ================= //
+import { 
+  mostrarLoading, ocultarLoading, montarHomeEAbas, 
+  configurarSidebarToggle, configurarBusca, 
+  mostrarAvisoCarrinho, atualizarSidebar 
+} from "./ui.js";
+import { adicionarAoCarrinho, removerDoCarrinho, limparCarrinho, restaurarCarrinho } from "./carrinho.js";
+import { gerarPDF, enviarWhatsApp, atualizarDashboard } from "./acoes.js";
 
-function atualizarCarrinhoUI() {
-  const container = document.getElementById("cart-items");
-  const totalEl = document.getElementById("cart-total");
-  const contador = document.getElementById("cart-text");
 
-  if (!container) return;
-
-  container.innerHTML = "";
-  let total = 0;
-
-  carrinho.forEach((item, index) => {
-    const div = document.createElement("div");
-    div.classList.add("cart-item");
-    div.innerHTML = `
-      <div class="cart-item-info">
-        <strong>${item.modelo}</strong>
-        <span>${item.nome}</span>
-        <span>R$ ${item.preco.toFixed(2)}</span>
-      </div>
-      <div class="cart-item-actions">
-        <span class="qtd">x${item.qtd}</span>
-        <button class="remove-item" data-index="${index}">🗑️</button>
-      </div>
-    `;
-    container.appendChild(div);
-    total += item.preco * item.qtd;
-  });
-
-  if (carrinho.length === 0) container.innerHTML = "<p class='empty-cart'>Carrinho vazio</p>";
-
-  const totalFormatado = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  if(totalEl) totalEl.textContent = `Total: ${totalFormatado}`;
-  if(contador) contador.textContent = `Carrinho (${carrinho.reduce((acc, item) => acc + item.qtd, 0)})`;
-
-  localStorage.setItem("carrinho_compras", JSON.stringify(carrinho));
-}
-
-function restaurarCarrinho() {
-  const salvo = localStorage.getItem("carrinho_compras");
-  if (salvo) {
-    try {
-      const itens = JSON.parse(salvo);
-      carrinho.length = 0;
-      itens.forEach(i => carrinho.push(i));
-    } catch (e) { console.error(e); }
+// ================= 1. CARREGAR DADOS (O que você me mandou) ================= //
+export async function carregarDados() {
+  mostrarLoading();
+  try {
+    const querySnapshot = await getDocs(collection(db, "produtos"));
+    if (!querySnapshot.empty) {
+      console.log("🔥 Carregando dados do Firebase...");
+      processarDadosFirebase(querySnapshot);
+    } else {
+      console.warn("⚠️ Firebase vazio. Usando CSV...");
+      await carregarDoCSV();
+    }
+  } catch (error) {
+    console.error("Erro ao carregar dados:", error);
+    alert("❌ Erro ao carregar dados. Verifique a conexão.");
+  } finally {
+    ocultarLoading();
   }
 }
 
-function adicionarAoCarrinho(novoItem) {
-  const existente = carrinho.find(
-    (item) => item.modelo === novoItem.modelo && item.nome === novoItem.nome
-  );
+function processarDadosFirebase(snapshot) {
+  marcas.length = 0;
+  dados.length = 0;
+  colunasServicos.length = 0;
 
-  if (existente) {
-    existente.qtd++;
-  } else {
-    carrinho.push({ ...novoItem, qtd: 1 });
-  }
-  
-  atualizarCarrinhoUI();
-  document.getElementById("cart-sidebar")?.classList.add("open");
+  let todosServicos = new Set();
+  let tempDados = [];
+
+  snapshot.forEach((doc) => {
+    const produto = doc.data();
+    if (produto.servicos) {
+      Object.keys(produto.servicos).forEach(s => todosServicos.add(s));
+    }
+    tempDados.push({ id: doc.id, ...produto });
+  });
+
+  colunasServicos.push(...Array.from(todosServicos).sort());
+
+  tempDados.forEach(prod => {
+    const servicosMap = prod.servicos || {};
+    const precosOrdenados = colunasServicos.map(s => servicosMap[s] || 0);
+
+    dados.push({
+      id: prod.id,
+      marca: prod.marca,
+      modelo: prod.modelo,
+      precos: precosOrdenados,
+      servicosMap: servicosMap
+    });
+
+    if (!marcas.includes(prod.marca)) marcas.push(prod.marca);
+  });
+
+  marcas.sort((a, b) => a.localeCompare(b, "pt-BR"));
+  montarHomeEAbas(); 
 }
 
-function removerDoCarrinho(index) {
-  carrinho.splice(index, 1);
-  atualizarCarrinhoUI();
+async function carregarDoCSV() {
+  try {
+    const resp = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vTLVINumL_bd-huXi3YRvNVit0IjNSijek8TJLrXYsX1uIEwr-UogRTacUkz0cgvkA1ikSPWqymGzw4/pub?output=csv");
+    if (!resp.ok) throw new Error("Falha no fetch");
+    const csvText = await resp.text();
+    console.log("CSV carregado (Backup).");
+  } catch (e) {
+    console.error("Erro no CSV fallback:", e);
+  }
 }
 
-// ================= INICIALIZAÇÃO ================= //
 
-document.addEventListener("DOMContentLoaded", async () => {
+// ================= 2. INICIALIZAÇÃO E CLIQUES (O Cérebro) ================= //
+async function inicializarApp() {
+  await carregarDados(); // Puxa do Firebase
+  restaurarCarrinho();   // Puxa o carrinho salvo
 
-  // --- MODO ADMIN ---
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('mode') === 'admin') {
-    document.body.classList.add("admin-mode");
-    
-    // Esconde elementos da loja
-    document.querySelector("header").style.display = "none";
-    document.querySelector("footer").style.display = "none";
-    document.querySelector("main").style.display = "none";
-    
-    // Mostra o Painel
-    const painel = document.getElementById("painel-admin");
-    if (painel) painel.classList.remove("hidden");
-    
-    // 1. Carrega os dados do Banco
-    await carregarDados(); 
-    
-    // 2. Inicia as ferramentas do Admin (AQUI ESTAVA O ERRO! AGORA VAI!)
-    if(typeof atualizarDashboard === 'function') atualizarDashboard();
-    if(typeof carregarRelatorio === 'function') carregarRelatorio();
-    iniciarEditorPrecos();
-    iniciarImportador(); 
-    
-    // Lógica das Abas internas do Admin
-    const adminBtns = document.querySelectorAll(".admin-tab-btn");
-    const adminContents = document.querySelectorAll(".admin-tab-content");
+  // Liga os eventos visuais
+  configurarSidebarToggle();
+  configurarBusca();
 
-    if (adminBtns.length > 0) {
-        adminBtns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                // Tira active de todos e esconde conteúdos
-                adminBtns.forEach(b => b.classList.remove("active"));
-                adminContents.forEach(c => c.style.display = "none");
-                
-                // Ativa o clicado
-                btn.classList.add("active");
-                const alvo = document.getElementById(btn.dataset.tab);
-                if(alvo) alvo.style.display = "block";
-            });
-        });
+  // Escuta TODOS os cliques na tela
+  document.addEventListener("click", (e) => {
+    
+    // 🛒 ADICIONAR ITEM AO CARRINHO
+    if (e.target.classList.contains("add-btn-final")) {
+      const { modelo, servico, preco, marca } = e.target.dataset;
+      adicionarAoCarrinho({ marca, modelo, nome: servico, preco: parseFloat(preco) });
+      mostrarAvisoCarrinho(modelo, servico);
+      atualizarSidebar();
     }
 
-    return; // Para a execução aqui (não carrega loja)
-  }
-
-  // --- MODO LOJA (CLIENTE) ---
-  restaurarCarrinho();
-  atualizarCarrinhoUI();
-  
-  await carregarDados(); 
-  montarHomeEAbas();     
-  configurarBusca();     
-  configurarSidebarToggle(); 
-
-  // Eventos de Clique (Adicionar ao Carrinho)
-  document.getElementById("lista-servicos").addEventListener("click", (e) => {
-    if (e.target.classList.contains("add-btn")) {
-      e.stopPropagation(); 
-      const card = e.target.closest(".card");
-      const servico = {
-        marca: card.dataset.marca,
-        modelo: card.dataset.modelo,
-        nome: e.target.dataset.servico,
-        preco: parseFloat(e.target.dataset.preco)
-      };
-      adicionarAoCarrinho(servico);
+    // 🗑️ REMOVER ITEM DO CARRINHO
+    if (e.target.classList.contains("remove-btn")) {
+      const { modelo, nome } = e.target.dataset;
+      removerDoCarrinho(modelo, nome);
+      atualizarSidebar();
     }
-  });
 
-  // Eventos Carrinho
-  document.getElementById("cart-items").addEventListener("click", (e) => {
-    if (e.target.classList.contains("remove-item")) {
-      removerDoCarrinho(parseInt(e.target.dataset.index));
-    }
-  });
-  
-  document.getElementById("btn-clear-cart")?.addEventListener("click", () => {
-      carrinho.length = 0;
-      atualizarCarrinhoUI();
-  });
-
-  // Login Admin (Atalho "admin")
-  let keys = [];
-  const palavraMagica = "admin";
-  document.addEventListener("keydown", (e) => {
-    if (!document.getElementById("modal-login").classList.contains("hidden")) return;
-    if (e.target.tagName === 'INPUT') return;
-
-    keys.push(e.key);
-    if (keys.length > palavraMagica.length) keys.shift();
-    if (keys.join("").toLowerCase() === palavraMagica) {
-      const modal = document.getElementById("modal-login");
+    // 📱 ABRIR MODAL DE PDF OU WHATSAPP
+    if (e.target.id === "btn-gerar-pdf" || e.target.id === "btn-open-wa") {
+      if (carrinho.length === 0) return alert("Seu orçamento está vazio!");
+      const modal = document.getElementById("modal-orcamento");
+      modal.dataset.acaoPendente = e.target.id; 
       modal.classList.remove("hidden");
-      setTimeout(() => document.getElementById("input-senha-admin").focus(), 100);
-      keys = [];
+    }
+
+    // ✅ CONFIRMAR NOME E PAGAMENTO (Dispara o WA ou PDF)
+    if (e.target.id === "btn-confirmar-orcamento") {
+      const nome = document.getElementById("cliente-nome").value;
+      const pagamento = document.getElementById("forma-pagamento").value;
+      const parcelas = document.getElementById("parcelas").value || "1";
+
+      if (!nome || !pagamento) return alert("Preencha o nome e a forma de pagamento!");
+
+      const dadosCliente = { nome, pagamento, parcelas };
+      const acao = document.getElementById("modal-orcamento").dataset.acaoPendente;
+
+      if (acao === "btn-gerar-pdf") gerarPDF(carrinho, dadosCliente);
+      else enviarWhatsApp(carrinho, dadosCliente);
+
+      document.getElementById("modal-orcamento").classList.add("hidden");
+      document.getElementById("cliente-nome").value = "";
+    }
+
+    // ❌ FECHAR MODAIS
+    if (e.target.classList.contains("close-btn") || e.target.id === "modal-orcamento-fechar") {
+      const modal = e.target.closest(".modal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    // 🧹 LIMPAR CARRINHO
+    if (e.target.id === "btn-clear-cart") {
+      if(confirm("Deseja limpar o orçamento atual?")) {
+        limparCarrinho();
+        atualizarSidebar();
+      }
+    }
+
+    // ⚙️ ABRIR E LOGAR NO ADMIN
+    if (e.target.id === "abrir-admin") document.getElementById("modal-login").classList.remove("hidden");
+    
+    if (e.target.id === "btn-entrar-admin") {
+      if (document.getElementById("input-senha-admin").value === "1322") {
+        document.getElementById("modal-login").classList.add("hidden");
+        document.getElementById("painel-admin").classList.remove("hidden");
+        iniciarEditorPrecos(); 
+        if(typeof atualizarDashboard === "function") atualizarDashboard();
+      } else {
+        alert("Senha incorreta!");
+      }
+    }
+    
+    // 🚪 SAIR DO ADMIN
+    if (e.target.id === "btn-sair-admin") {
+      document.getElementById("painel-admin").classList.add("hidden");
     }
   });
 
-  // Verificar Senha e Botões Modal Login
-  const btnEntrar = document.getElementById("btn-entrar-admin");
-  const modalLogin = document.getElementById("modal-login");
-  const inputSenha = document.getElementById("input-senha-admin");
+  // Mostra campo de parcelas se for Cartão de Crédito
+  document.getElementById("forma-pagamento")?.addEventListener("change", (e) => {
+    const parcelas = document.getElementById("parcelas");
+    if (e.target.value === "Credito") parcelas.classList.remove("hidden");
+    else parcelas.classList.add("hidden");
+  });
+}
 
-  function tentarLogin() {
-      if (inputSenha.value === "1322") {
-          window.open(window.location.href.split('?')[0] + "?mode=admin", "_blank");
-          modalLogin.classList.add("hidden");
-          inputSenha.value = "";
-      } else {
-          alert("Senha incorreta");
+// Inicia tudo quando a página carrega
+window.addEventListener("DOMContentLoaded", inicializarApp);
+
+
+// ================= 3. EDITOR DE PREÇOS (O que você me mandou) ================= //
+export function iniciarEditorPrecos() {
+  const containerLista = document.getElementById("lista-editor-produtos");
+  const containerAbas = document.getElementById("admin-brand-tabs");
+  const inputBusca = document.getElementById("busca-editor");
+
+  if (!containerLista || !inputBusca || !containerAbas) return;
+
+  const btnCorrigir = document.createElement("button");
+  btnCorrigir.textContent = "🪄 Corrigir Erro dos Milhares (x1000)";
+  btnCorrigir.style.cssText = "width: 100%; margin-bottom: 20px; padding: 15px; background: #ff9800; color: white; border: none; font-weight: bold; border-radius: 8px; cursor: pointer;";
+
+  btnCorrigir.onclick = async () => {
+    if (!confirm("Deseja corrigir preços entre 1.00 e 10.00 multiplicando por 1000?")) return;
+    mostrarLoading();
+    btnCorrigir.disabled = true;
+    let totalCorrigidos = 0;
+    const updates = [];
+
+    for (const produto of dados) {
+      if (!produto.servicosMap) continue;
+      let mudouAlgo = false;
+      const novosPrecos = { ...produto.servicosMap };
+
+      Object.keys(novosPrecos).forEach(servico => {
+        const valorAtual = novosPrecos[servico];
+        if (valorAtual > 1 && valorAtual < 10) {
+          novosPrecos[servico] = valorAtual * 1000;
+          mudouAlgo = true;
+          totalCorrigidos++;
+        }
+      });
+
+      if (mudouAlgo) {
+        const docRef = doc(db, "produtos", produto.id);
+        updates.push(updateDoc(docRef, { servicos: novosPrecos }));
       }
+    }
+
+    try {
+      await Promise.all(updates); 
+      alert(`✅ ${totalCorrigidos} preços corrigidos!`);
+    } catch (err) {
+      console.error("Erro na correção:", err);
+      alert("❌ Erro ao corrigir preços.");
+    } finally {
+      btnCorrigir.disabled = false;
+      ocultarLoading();
+      document.querySelector("#admin-brand-tabs .tab-btn.active")?.click(); 
+    }
+  };
+
+  if (!document.getElementById("btn-corrigir-id")) {
+    btnCorrigir.id = "btn-corrigir-id";
+    containerAbas.parentNode.insertBefore(btnCorrigir, containerAbas);
   }
 
-  btnEntrar?.addEventListener("click", tentarLogin);
-  inputSenha?.addEventListener("keypress", (e) => { if(e.key === "Enter") tentarLogin(); });
-  document.getElementById("btn-fechar-login")?.addEventListener("click", () => modalLogin.classList.add("hidden"));
+  const marcasUnicas = [...new Set(dados.map(item => item.marca))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  containerAbas.innerHTML = "";
 
-  // Botões do Orçamento (Modal)
-  document.getElementById("btn-gerar-pdf")?.addEventListener("click", () => {
-     document.getElementById("modal-orcamento").classList.remove("hidden");
+  marcasUnicas.forEach(marca => {
+    const btn = document.createElement("button");
+    btn.textContent = marca;
+    btn.className = "tab-btn";
+    btn.onclick = () => {
+      document.querySelectorAll("#admin-brand-tabs .tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderizarEditor(marca, "");
+    };
+    containerAbas.appendChild(btn);
   });
-  document.getElementById("btn-open-wa")?.addEventListener("click", () => {
-     document.getElementById("modal-orcamento").classList.remove("hidden");
-  });
-  
-  document.getElementById("modal-orcamento-fechar")?.addEventListener("click", () => {
-     document.getElementById("modal-orcamento").classList.add("hidden");
-  });
-  
-  // Botão Confirmar Orçamento
-  document.getElementById("btn-confirmar-orcamento")?.addEventListener("click", () => {
-      // Importa lógica de confirmação do UI ou executa aqui se preferir
-      // Por simplicidade, assumimos que acoes.js trata isso ou adicionamos aqui:
-      const nome = document.getElementById("cliente-nome").value;
-      const pag = document.getElementById("forma-pagamento").value;
-      if(nome && pag) {
-         // Lógica de envio (PDF ou Zap)
-         // Como exemplo simples:
-         alert("Processando para " + nome);
-         document.getElementById("modal-orcamento").classList.add("hidden");
-      } else {
-         alert("Preencha os dados");
-      }
-  });
-});
+
+  const renderizarEditor = (filtroMarca, filtroTexto) => {
+    containerLista.innerHTML = "";
+    const filtrados = dados.filter(item => {
+      const busca = `${item.marca} ${item.modelo}`.toLowerCase();
+      if (filtroTexto.length > 0) return busca.includes(filtroTexto.toLowerCase());
+      return item.marca === filtroMarca;
+    });
+
+    filtrados.forEach(produto => {
+      const div = document.createElement("div");
+      div.className = "editor-card";
+      div.style.cssText = "border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background: #fff;";
+
+      let htmlServicos = "";
+      Object.keys(produto.servicosMap || {}).forEach(servico => {
+        htmlServicos += `
+          <div style="margin-top: 8px; display: flex; justify-content: space-between;">
+            <label>${servico}:</label>
+            <input type="number" class="input-preco" data-servico="${servico}" value="${produto.servicosMap[servico]}" style="width: 80px; padding:5px;">
+          </div>`;
+      });
+
+      div.innerHTML = `
+        <h3 style="color:#004aad; margin-top:0;">${produto.modelo}</h3>
+        ${htmlServicos}
+        <button class="btn-salvar-preco" style="width:100%; margin-top:15px; background:#004aad; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-weight:bold;">💾 Salvar</button>`;
+
+      div.querySelector(".btn-salvar-preco").onclick = async () => {
+        try {
+          const novosPrecos = {};
+          div.querySelectorAll(".input-preco").forEach(i => novosPrecos[i.dataset.servico] = parseFloat(i.value) || 0);
+          const docRef = doc(db, "produtos", produto.id);
+          await updateDoc(docRef, { servicos: novosPrecos });
+          alert("✅ Preço salvo no Firebase!");
+        } catch (err) {
+          console.error("Erro ao salvar preço:", err);
+          alert("❌ Erro ao salvar.");
+        }
+      };
+      containerLista.appendChild(div);
+    });
+  };
+
+  inputBusca.oninput = (e) => renderizarEditor(null, e.target.value);
+}
