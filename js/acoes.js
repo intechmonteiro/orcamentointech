@@ -1,16 +1,29 @@
-// ======================================================== //
-// acoes.js - PDF, WhatsApp e Dashboard (Versão Blindada)
-// ======================================================== //
+// ======================================================== acoes.js - PDF, WhatsApp e Dashboard ======================================================== //
 
-import { salvarOrcamento, obterHistorico } from "./storage.js"; 
-import { formatBR } from "./utils.js"; 
+import { salvarOrcamento, obterHistorico } from "./storage.js";
+import { formatBR } from "./utils.js";
 
-// ================= CÁLCULO DE PAGAMENTO ================= //
+// ==================================================================== Helpers blindados ====================================================================//
+function getJsPDF() {
+  // jsPDF UMD padrão (CDN): window.jspdf.jsPDF
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  // alguns builds expõem window.jsPDF
+  if (window.jsPDF) return window.jsPDF;
+  return null;
+}
+
+function safeUUID() {
+  try {
+    if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  } catch {}
+  return `mi_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 function calcularPagamento(total, dadosCliente) {
   const TAXA = 0.0652; // 6,52% no crédito
   const pagamento = (dadosCliente.pagamento || "").toLowerCase();
   const parcelas = parseInt(dadosCliente.parcelas || "1", 10);
-  
+
   const temJuros = pagamento.includes("credito");
   const totalFinal = temJuros ? total * (1 + TAXA) : total;
   const valorParcela = parcelas > 1 ? totalFinal / parcelas : null;
@@ -26,7 +39,8 @@ function gerarNumeroOrcamento() {
   return `MI-${String(atual).padStart(6, "0")}`;
 }
 
-// ================= ENVIAR WHATSAPP ================== //
+// ==================================================================== WhatsApp ====================================================================//
+
 export async function enviarWhatsApp(carrinho, dadosCliente) {
   const totalBase = carrinho.reduce((soma, item) => soma + item.preco * item.qtd, 0);
   const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
@@ -44,19 +58,20 @@ export async function enviarWhatsApp(carrinho, dadosCliente) {
 
   mensagem += `*Itens do Orçamento:*\n`;
   carrinho.forEach(item => {
-    mensagem += `▸ ${item.qtd}x ${item.modelo} - ${item.nome}\n`;
+    const marcaModelo = `${item.marca ? item.marca + " " : ""}${item.modelo || ""}`.trim();
+    mensagem += `▸ ${item.qtd}x ${marcaModelo} - ${item.nome}\n`;
   });
 
   mensagem += `\n_Validade: 7 dias_\n_Monteiro Intech_`;
 
   const texto = encodeURIComponent(mensagem.trim());
-  const telefone = "55997005039"; //
+  const telefone = "55997005039";
   const url = `https://wa.me/${telefone}?text=${texto}`;
 
   window.open(url, "_blank");
 
   await salvarOrcamento({
-    id: crypto.randomUUID(),
+    id: safeUUID(),
     numero: gerarNumeroOrcamento(),
     cliente: dadosCliente.nome,
     pagamento: dadosCliente.pagamento,
@@ -64,24 +79,39 @@ export async function enviarWhatsApp(carrinho, dadosCliente) {
     total: pagamentoCalc.totalFinal,
     data: new Date().toISOString(),
     itens: carrinho,
-    pdf: null 
+    pdf: null
   });
 
   if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
 }
 
-// ================= GERAR PDF ================== //
+// ===========================================================================  GERAR PDF ======================================================== //
+
 export async function gerarPDF(carrinho, dadosCliente) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const azulMonteiro = [0, 74, 173]; 
+  console.log("Gerando PDF...");
+
+  if (!Array.isArray(carrinho) || carrinho.length === 0) {
+    alert("Carrinho vazio.");
+    return;
+  }
+
+  const jsPDF = getJsPDF();
+  if (!jsPDF) {
+    console.error("jsPDF não carregou. window.jspdf:", window.jspdf, "window.jsPDF:", window.jsPDF);
+    alert("jsPDF não carregou. Verifique o script do jsPDF no HTML e tente Ctrl+F5.");
+    return;
+  }
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const azulMonteiro = [0, 74, 173];
 
   const numeroOrcamento = gerarNumeroOrcamento();
-  const totalBase = carrinho.reduce((soma, item) => soma + item.preco * item.qtd, 0);
+  const totalBase = carrinho.reduce((soma, item) => soma + (Number(item.preco || 0) * (item.qtd || 1)), 0);
   const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
 
-    doc.setFillColor(...azulMonteiro);
-  doc.rect(0, 0, 210, 40, 'F'); 
+  // ======= SEU PDF (mesmo layout) =======
+  doc.setFillColor(...azulMonteiro);
+  doc.rect(0, 0, 210, 40, "F");
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
@@ -92,18 +122,16 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.setFont("helvetica", "normal");
   doc.text("Assistência Técnica Especializada", 20, 32);
 
-  // --- ENDEREÇO E CONTATO ---
   doc.setFontSize(9);
-  doc.text("Rua Paulo Gelson Padilha, 58", 140, 20); //
-  doc.text("Menino Deus - Salto do Jacuí/RS", 140, 25); //
-  doc.text("WhatsApp: (55) 99700-5039", 140, 30); //
+  doc.text("Rua Paulo Gelson Padilha, 58", 140, 20);
+  doc.text("Menino Deus - Salto do Jacuí/RS", 140, 25);
+  doc.text("WhatsApp: (55) 99700-5039", 140, 30);
 
-  // --- DADOS DO CLIENTE ---
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("ORÇAMENTO DE SERVIÇO", 20, 55);
-  
+
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.text(`Nº: ${numeroOrcamento}`, 170, 55);
@@ -113,41 +141,73 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.setDrawColor(200, 200, 200);
   doc.line(20, 77, 190, 77);
 
-  // --- TABELA DE ITENS ---
+  // --- TABELA ---
   let y = 90;
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   doc.text("Qtd", 20, 85);
   doc.text("Descrição do Serviço / Peça", 35, 85);
-  doc.text("Valor", 175, 85);
+  doc.text("Valor", 190, 85, { align: "right" });
 
   doc.setTextColor(0, 0, 0);
+
   carrinho.forEach((item) => {
-    doc.text(`${item.qtd}x`, 20, y);
+    const qtd = item.qtd || 1;
+    const preco = Number(item.preco || 0);
+    const totalLinha = preco * qtd;
+
+    // Quebra de página simples para muitos itens
+    if (y > 270) {
+      doc.addPage();
+      y = 30;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Qtd", 20, 25);
+      doc.text("Descrição do Serviço / Peça", 35, 25);
+      doc.text("Valor", 190, 25, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    doc.text(`${qtd}x`, 20, y);
     doc.text(`${item.modelo} - ${item.nome}`, 35, y);
-    doc.text(formatBR(item.preco * item.qtd), 175, y);
+    doc.text(formatBR(totalLinha), 190, y, { align: "right" });
     y += 8;
   });
 
   // --- TOTAIS ---
   y += 5;
+  if (y > 270) {
+    doc.addPage();
+    y = 30;
+  }
+
   doc.setDrawColor(...azulMonteiro);
   doc.line(130, y, 190, y);
   y += 10;
-  doc.setFont("helvetica", "bold");
-  doc.text("TOTAL:", 130, y);
-  doc.setTextColor(...azulMonteiro);
-  doc.text(formatBR(pagamentoCalc.totalFinal), 165, y);
 
-  // --- TERMOS DE GARANTIA E CONDIÇÕES ---
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text("TOTAL:", 130, y);
+
+  doc.setTextColor(...azulMonteiro);
+  doc.text(formatBR(pagamentoCalc.totalFinal), 190, y, { align: "right" });
+
+  // --- TERMOS ---
   y += 20;
+  if (y > 250) {
+    doc.addPage();
+    y = 30;
+  }
+
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(11);
   doc.text("TERMOS DE GARANTIA E CONDIÇÕES", 20, y);
-  
+
   y += 7;
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
+
   const termos = [
     "1. GARANTIA: 90 dias para defeitos de fabricação na peça substituída, conforme o Art. 26 do CDC.",
     "2. PERDA DE GARANTIA: A garantia será anulada em caso de: quedas, contato com líquidos (oxidação),",
@@ -157,14 +217,25 @@ export async function gerarPDF(carrinho, dadosCliente) {
     "   abandonados e poderão ser vendidos para custear as despesas do reparo (Art. 1.275 do Código Civil).",
     "5. RESPONSABILIDADE: A Monteiro Intech não se responsabiliza por perda de dados. Faça backup antes do reparo."
   ];
-  
-  termos.forEach(linha => {
+
+  termos.forEach((linha) => {
+    if (y > 285) {
+      doc.addPage();
+      y = 30;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+    }
     doc.text(linha, 20, y);
     y += 5;
   });
 
   // --- ASSINATURAS ---
   y += 15;
+  if (y > 275) {
+    doc.addPage();
+    y = 30;
+  }
+
   doc.line(20, y, 90, y);
   doc.line(120, y, 190, y);
   y += 5;
@@ -174,26 +245,39 @@ export async function gerarPDF(carrinho, dadosCliente) {
   // --- RODAPÉ ---
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
-  const dataH = new Date().toLocaleDateString('pt-BR');
+  const dataH = new Date().toLocaleDateString("pt-BR");
   doc.text(`Documento gerado em ${dataH} via sistema Monteiro Intech.`, 105, 285, { align: "center" });
 
-  // --- SALVAR ---
-  const pdfBase64 = doc.output("datauristring");
-  await salvarOrcamento({
-    id: crypto.randomUUID(),
-    numero: numeroOrcamento,
-    cliente: dadosCliente.nome,
-    pagamento: dadosCliente.pagamento,
-    total: pagamentoCalc.totalFinal,
-    data: new Date().toISOString(),
-    itens: carrinho,
-    pdf: pdfBase64
-  });
+  // ======= PONTO CRÍTICO: BAIXAR ANTES DE QUALQUER AWAIT =======
+  const nomeArquivo = `Orcamento_${dadosCliente.nome}_${numeroOrcamento}.pdf`;
 
-  doc.save(`Orcamento_${dadosCliente.nome}_${numeroOrcamento}.pdf`);
+  // gerar base64 (sincrono) e salvar
+  const pdfBase64 = doc.output("datauristring");
+
+  // dispara o download IMEDIATAMENTE (PC não bloqueia)
+  doc.save(nomeArquivo);
+
+  // salvar no histórico SEM impedir o download
+  try {
+    await salvarOrcamento({
+      id: safeUUID(),
+      numero: numeroOrcamento,
+      cliente: dadosCliente.nome,
+      pagamento: dadosCliente.pagamento,
+      total: pagamentoCalc.totalFinal,
+      data: new Date().toISOString(),
+      itens: carrinho,
+      pdf: pdfBase64
+    });
+  } catch (e) {
+    console.error("Falha ao salvar orçamento no histórico:", e);
+  }
+
+  if (typeof window.atualizarDashboard === "function") window.atualizarDashboard();
 }
 
-// ================= ATUALIZAR DASHBOARD ================== //
+// ============================================================= ATUALIZAR DASHBOARD ================================================================== //
+
 export async function atualizarDashboard() {
   const historico = await obterHistorico();
   if (!historico.length) return;
@@ -208,19 +292,19 @@ export async function atualizarDashboard() {
 
   const elQtd = document.getElementById("dash-qtd");
   if (elQtd) elQtd.textContent = qtd;
-  
+
   const elTotal = document.getElementById("dash-total");
   if (elTotal) elTotal.textContent = formatBR(total);
-  
+
   const elTicket = document.getElementById("dash-ticket");
   if (elTicket) elTicket.textContent = formatBR(ticketMedio);
-  
+
   const elPix = document.getElementById("dash-pix");
   if (elPix) elPix.textContent = formatBR(pix);
-  
+
   const elCredito = document.getElementById("dash-credito");
   if (elCredito) elCredito.textContent = formatBR(credito);
-  
+
   const elDebito = document.getElementById("dash-debito");
   if (elDebito) elDebito.textContent = formatBR(debito);
 }

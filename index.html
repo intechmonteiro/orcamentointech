@@ -1,23 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Monteiro Intech - Orçamentos</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="assets/favicon-16x16.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"> <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-  <script type="module" src="js/firebase.js"></script>
-  <script type="module" src="js/main.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="assets/favicon-16x16.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+
+<!-- jsPDF primeiro -->
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- (opcional) PapaParse se você usa import CSV -->
+<script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<!-- seu app por último -->
+<script type="module" src="js/main.js"></script>
 </head>
-<body>
 
+<body>
   <header class="topbar">
     <div class="brand">Monteiro Intech</div>
-    <div style="display: flex; gap: 10px;">
-      <button id="cart-toggle" class="cart-btn">🛒 Carrinho</button>
-      <button id="abrir-admin" class="admin-btn" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer;">⚙️ Admin</button>
+    <div style="display:flex; gap:10px;">
+      <button type="button" id="cart-toggle" class="cart-btn">🛒 Carrinho</button>
+      <button type="button" id="abrir-admin" class="admin-btn">⚙️ Admin</button>
     </div>
   </header>
 
@@ -26,184 +33,166 @@
     <p>Carregando...</p>
   </div>
 
-  <nav class="brand-tabs-container">
-    <div class="container">
-      <div id="brand-tabs" class="brand-tabs"></div>
-    </div>
-  </nav>
+  <div id="container-admin-carrinho">
+    <!-- Admin (sidebar direita) -->
+    <section id="painel-admin" class="painel-admin hidden">
+      <div style="margin-top:18px; padding:14px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px;">
+  <h3 style="margin:0 0 10px; font-size:1rem;">📥 Importar Catálogo (CSV → Firestore)</h3>
 
-  <div class="search-container" style="text-align: center; padding: 20px 5%;">
-    <input type="text" id="app-search" placeholder="🔍 Digite o modelo do seu celular..." style="width: 100%; max-width: 600px; padding: 12px 25px; border-radius: 30px; border: 1px solid #ddd; outline: none; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+  <input id="csv-url" type="url" placeholder="Cole a URL direta do CSV (https://...)" style="width:100%; padding:12px; border-radius:12px; border:1px solid #e5e7eb; outline:none; margin-bottom:10px;" />
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="button" id="btn-importar-csv-url" class="btn-secondary-pdf" style="flex:1;">Importar da URL</button>
+
+    <label class="btn-secondary-pdf" style="flex:1; cursor:pointer; text-align:center;" for="csv-file">
+      Importar Arquivo
+    </label>
+    <input id="csv-file" type="file" accept=".csv,text/csv" hidden />
   </div>
 
-  <main class="container">
-    <section id="lista-servicos">
-      <div class="hero-home">
-        <h1>Bem-vindo à Monteiro Intech</h1>
-        <p>Assistência técnica rápida e confiável para seus dispositivos.</p>
-        <button class="btn-primary">Explorar Serviços</button>
+  <div id="import-status" style="margin-top:10px; font-weight:700; opacity:.85;"></div>
+
+  <p style="margin:10px 0 0; font-size:.85rem; opacity:.75; line-height:1.35;">
+    Observação: URL precisa permitir CORS. Se der erro de CORS, use “Importar Arquivo”.
+  </p>
+</div>
+      <div class="admin-header">
+        <h2>Painel Administrativo</h2>
+        <button type="button" id="btn-sair-admin">Sair</button>
       </div>
+
+      <div id="dashboard-admin" class="dashboard">
+        <div class="dash-card">
+          <h3>📄 Orçamentos</h3>
+          <span id="dash-qtd">0</span>
+        </div>
+      </div>
+
+      <h2>Relatórios de Orçamentos</h2>
+      <div id="relatorio-lista"></div>
+
+      <button type="button" id="btn-exportar-relatorio" class="btn-secondary-pdf">
+        📊 Exportar Relatório (Excel)
+      </button>
     </section>
-  </main>
 
-  <div id="cart-sidebar" class="cart-sidebar">
-    <div class="cart-header">
-      <h3>Seu Orçamento</h3>
-      <button id="cart-close" class="close-btn" style="background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer;">✕</button>
+    <!-- Carrinho (sidebar direita) -->
+    <div id="cart-sidebar" class="cart-sidebar hidden">
+      <div class="cart-header">
+        <h3>Seu Orçamento</h3>
+        <button type="button" id="cart-close" class="close-btn" aria-label="Fechar carrinho">✕</button>
+      </div>
+
+      <div id="cart-items" class="cart-items"></div>
+
+      <div class="cart-footer">
+        <div id="cart-total" class="cart-total">Total: R$ 0,00</div>
+        <button type="button" id="btn-open-wa" class="btn-primary-wa">🚀 Finalizar no WhatsApp</button>
+        <button type="button" id="btn-gerar-pdf" class="btn-secondary-pdf">📄 Gerar PDF</button>
+        <button type="button" id="btn-clear-cart" class="btn-clear-link">Limpar Carrinho</button>
+      </div>
     </div>
-    <div id="cart-items" class="cart-items"></div>
-    <div class="cart-footer">
-      <div id="cart-total" class="cart-total">Total: R$ 0,00</div>
-      <button id="btn-open-wa" class="btn-primary-wa">🚀 Finalizar no WhatsApp</button>
-      <button id="btn-gerar-pdf" class="btn-secondary-pdf">📄 Gerar PDF</button>
-      <button id="btn-clear-cart" class="btn-clear-link" style="width: 100%; margin-top: 10px; background: transparent; border: none; color: #888; text-decoration: underline; cursor: pointer;">Limpar Carrinho</button>
+
+    <!-- Conteúdo principal -->
+    <div id="main-content">
+      <main class="container">
+        <section id="lista-servicos">
+          <div class="hero-home">
+            <h1>Bem-vindo à Monteiro Intech</h1>
+            <p>Aqui a confiança que se instala com um clique.</p>
+          </div>
+          <!-- O main.js vai inserir aqui: busca, abas e grid de serviços -->
+        </section>
+      </main>
     </div>
   </div>
 
-  <div id="modal-orcamento" class="modal hidden">
+  <!-- Modal Orçamento -->
+  <div
+    id="modal-orcamento"
+    class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-orcamento"
+  >
     <div class="modal-content modal-central">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #004aad;">Confirmar Orçamento</h3>
-        <button id="modal-orcamento-fechar" class="close-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
+      <div class="modal-header">
+        <h3 id="titulo-modal-orcamento">Confirmar Orçamento</h3>
+        <button type="button" id="modal-orcamento-fechar" class="close-btn" aria-label="Fechar modal">✕</button>
       </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
-        <label for="cliente-nome" style="font-weight: bold; font-size: 0.9rem;">Nome do Cliente:</label>
-        <input type="text" id="cliente-nome" placeholder="Digite o nome..." required style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-        
-        <label for="forma-pagamento" style="font-weight: bold; font-size: 0.9rem; margin-top: 10px;">Forma de Pagamento:</label>
-        <select id="forma-pagamento" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+
+      <div class="modal-body">
+        <label for="cliente-nome">Nome do Cliente:</label>
+        <input type="text" id="cliente-nome" placeholder="Digite o nome..." required />
+
+        <label for="forma-pagamento">Forma de Pagamento:</label>
+        <select id="forma-pagamento">
           <option value="">Selecione...</option>
           <option value="PIX">PIX</option>
           <option value="Debito">Débito</option>
           <option value="Credito">Crédito</option>
         </select>
-        
-        <select id="parcelas" class="hidden" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-top: 5px;">
+
+        <select id="parcelas" class="hidden">
           <option value="1">1x (Com Juros)</option>
           <option value="2">2x (Com Juros)</option>
           <option value="3">3x (Com Juros)</option>
           <option value="4">4x (Com Juros)</option>
           <option value="5">5x (Com Juros)</option>
           <option value="6">6x (Com Juros)</option>
-      </div>
-      <div class="modal-footer" style="margin-top: 20px;">
-        <button id="btn-confirmar-orcamento" class="btn btn-primary-wa" style="width: 100%;">Confirmar</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="modal-login" class="modal hidden">
-    <div class="modal-content" style="max-width: 350px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-        <h3 style="margin: 0; color: #004aad;">Acesso Restrito</h3>
-        <button id="btn-fechar-login" class="close-btn" style="background: none; border: none; font-size: 1.2rem; cursor: pointer;">✕</button>
-      </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
-        <input type="password" id="input-senha-admin" placeholder="Digite a senha..." style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-        <button id="btn-entrar-admin" class="btn-secondary-pdf" style="width: 100%;">Entrar</button>
-      </div>
-    </div>
-  </div>
-
-  <section id="painel-admin" class="painel-admin hidden">
-    <div class="admin-header" style="display: flex; justify-content: space-between; align-items: center; background: #004aad; color: white; padding: 20px;">
-      <h2 style="margin: 0;">Painel Administrativo</h2>
-      <button id="btn-sair-admin" class="close-btn" style="background: rgba(255,255,255,0.2); border: 1px solid white; color: white; padding: 5px 15px; border-radius: 8px; cursor: pointer;">Sair</button>
-    </div>
-
-    <div style="padding: 20px;">
-      <div id="dashboard-admin" class="dashboard" style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 30px;">
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">📄 Orçamentos</h3>
-          <span id="dash-qtd" style="font-size: 1.5rem; font-weight: bold; color: #004aad;">0</span>
-        </div>
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">💰 Total</h3>
-          <span id="dash-total" style="font-size: 1.5rem; font-weight: bold; color: #25d366;">R$ 0,00</span>
-        </div>
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">📊 Ticket Médio</h3>
-          <span id="dash-ticket" style="font-size: 1.5rem; font-weight: bold; color: #004aad;">R$ 0,00</span>
-        </div>
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">💳 PIX</h3>
-          <span id="dash-pix" style="font-size: 1.5rem; font-weight: bold; color: #004aad;">R$ 0,00</span>
-        </div>
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">💳 Crédito</h3>
-          <span id="dash-credito" style="font-size: 1.5rem; font-weight: bold; color: #004aad;">R$ 0,00</span>
-        </div>
-        <div class="dash-card" style="background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); flex: 1; min-width: 150px;">
-          <h3 style="margin: 0 0 10px 0; font-size: 1rem; color: #555;">💳 Débito</h3>
-          <span id="dash-debito" style="font-size: 1.5rem; font-weight: bold; color: #004aad;">R$ 0,00</span>
-        </div>
-      </div>
-
-      <h2>Relatórios de Orçamentos</h2>
-      <div id="relatorio-lista" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);"></div>
-
-      <button id="btn-exportar-relatorio" class="btn-secondary-pdf" style="width: auto; padding: 10px 20px; margin-top: 15px;">📊 Exportar Relatório (Excel)</button>
-
-      <button id="btn-limpar-historico" style="background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; margin-left: 10px;">🗑️ Limpar Histórico do Mês</button>
-
-      <div class="filtros-relatorio" style="margin-top: 20px; display: flex; gap: 10px;">
-        <input type="text" id="busca-relatorio" placeholder="🔎 Buscar por cliente ou número" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-        <select id="filtro-pagamento" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-          <option value="">💳 Todos pagamentos</option>
-          <option value="PIX">PIX</option>
-          <option value="Credito">Crédito</option>
-          <option value="Débito">Débito</option>
         </select>
       </div>
 
-      <section id="editor-produtos" class="admin-section" style="margin-top: 40px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h2>Editor de Produtos</h2>
-        <input type="text" id="busca-editor" placeholder="🔎 Buscar modelo ou marca..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;">
-        <div id="admin-brand-tabs" class="brand-tabs" style="margin-bottom: 15px;"></div>
-        <div id="lista-editor-produtos" class="editor-lista"></div>
-      </section>
-
-      <section id="importador-section" class="admin-section" style="margin-top: 40px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-        <h2>Importador de Preços</h2>
-        <div class="config-import" style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
-          <div>
-            <label for="config-mao-obra" style="display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">Mão de Obra (R$):</label>
-            <input type="number" id="config-mao-obra" value="50" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd; width: 100px;">
-          </div>
-          <div>
-            <label for="config-frete" style="display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">Frete (R$):</label>
-            <input type="number" id="config-frete" value="10" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd; width: 100px;">
-          </div>
-          <div>
-            <label for="config-margem" style="display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">Margem (%):</label>
-            <input type="number" id="config-margem" value="30" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd; width: 100px;">
-          </div>
-        </div>
-        <textarea id="texto-importacao" placeholder="Cole a lista de preços aqui... (ex: 📱Samsung\nA10 C/ARO R$ 50,00)" style="width: 100%; height: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; resize: vertical;"></textarea>
-        <button id="btn-processar-importacao" class="btn-primary-wa" style="width: auto; padding: 10px 20px;">Processar Importação</button>
-        <div id="log-importacao" class="log-area hidden" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #004aad; font-family: monospace; font-size: 0.9rem; white-space: pre-wrap;"></div>
-      </section>
-
-      <div class="backup-area" style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap;">
-        <button id="btn-exportar-backup" class="btn-secondary-pdf" style="width: auto; padding: 10px 20px;">💾 Exportar Backup</button>
-        <input type="file" id="input-importar-backup" accept=".json" hidden>
-        <button id="btn-importar-backup" class="btn-secondary-pdf" style="width: auto; padding: 10px 20px; background: #555;">📥 Importar Backup</button>
-        <input type="file" id="input-backup" accept=".json" hidden>
-        <button id="btn-restaurar-backup" style="background: transparent; color: #555; border: 1px solid #ccc; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">♻️ Restaurar Backup</button>
+      <div class="modal-footer">
+        <button type="button" id="btn-confirmar-orcamento" class="btn btn-primary-wa">Confirmar</button>
       </div>
     </div>
-  </section>
+  </div>
 
-  <footer class="rodape-intech" style="background: #111; color: white; text-align: center; padding: 40px 20px; margin-top: 60px;">
-    <h3 style="margin-bottom: 10px; color: #004aad;">Monteiro Intech</h3>
-    <p style="color: #aaa; margin-bottom: 20px;">Assistência técnica especializada e confiança total.</p>
-    <div class="social-links" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px;">
-      <a href="https://wa.me/5555997005039" target="_blank" style="color: #25d366; text-decoration: none; font-weight: bold;">WhatsApp</a>
-      <a href="https://www.instagram.com/intech.monteiro/" target="_blank" style="color: #e1306c; text-decoration: none; font-weight: bold;">Instagram</a>
-      <a href="https://www.facebook.com/intech.monteiro?locale=pt_BR" target="_blank" style="color: #1877f2; text-decoration: none; font-weight: bold;">Facebook</a>
+  <!-- Modal Login Admin (NÃO deve ficar dentro do footer) -->
+  <div
+    id="modal-admin-login"
+    class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="titulo-modal-admin"
+  >
+    <div class="modal-content modal-central">
+      <div class="modal-header">
+        <h3 id="titulo-modal-admin">Acesso Admin</h3>
+        <button type="button" id="modal-admin-fechar" class="close-btn" aria-label="Fechar">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <label for="admin-pass">Senha:</label>
+        <input
+          type="password"
+          id="admin-pass"
+          placeholder="Digite a senha..."
+          autocomplete="current-password"
+        />
+        <p id="admin-err" style="display:none; margin:8px 0 0; color:#dc2626; font-weight:800;">
+          Senha inválida.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-admin-entrar" class="btn-secondary-pdf">Entrar</button>
+      </div>
     </div>
-    <p class="creditos" style="color: #666; font-size: 0.8rem;">© 2026 Monteiro Intech — Todos os direitos reservados.</p>
-  </footer>
+  </div>
 
+  <footer class="rodape-intech">
+    <h3>Monteiro Intech</h3>
+    <p>Confiança que se instala com um clique.</p>
+
+    <div class="social-links">
+      <a href="https://wa.me/5555997005039" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      <a href="https://www.instagram.com/intech.monteiro/" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a href="https://www.facebook.com/intech.monteiro?locale=pt_BR" target="_blank" rel="noopener noreferrer">Facebook</a>
+    </div>
+
+    <p class="creditos">© 2025 Monteiro Intech — Todos os direitos reservados.</p>
+  </footer>
 </body>
 </html>
