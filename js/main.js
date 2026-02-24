@@ -687,18 +687,18 @@ ui.btnConfirmarOrc?.addEventListener("click", async () => {
     parcelas: meta.parcela
   };
 
-  try {
-    if (pendingCheckoutAction === "pdf") {
-      await gerarPDF(cart, dadosCliente);
-    } else {
-      await enviarWhatsApp(cart, dadosCliente);
-    }
-
-    closeModalOrcamento();
-  } catch (e) {
-    console.error(e);
-    alert("Erro ao gerar PDF/WhatsApp. Veja o console (F12).");
+try {
+  const acoes = await getAcoes();
+  if (pendingCheckoutAction === "pdf") {
+    await acoes.gerarPDF(cart, dadosCliente);
+  } else {
+    await acoes.enviarWhatsApp(cart, dadosCliente);
   }
+  closeModalOrcamento();
+} catch (e) {
+  console.error(e);
+  alert("Erro ao carregar ações (PDF/WhatsApp). Veja o console (F12).");
+}
 });
 ui.modalOrc?.addEventListener("click", (e) => { if (e.target === ui.modalOrc) closeModalOrcamento(); });
 ui.abrirAdmin?.addEventListener("click", () => { if (isAdminAuthed()) openAdminPanel(); else openAdminLogin(); });
