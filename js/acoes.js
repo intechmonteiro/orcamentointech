@@ -1,13 +1,12 @@
-// ======================================================== acoes.js - PDF, WhatsApp e Dashboard ======================================================== //
+// ======================================================== acoes.js ======================================================== //
 
 import { salvarOrcamento, obterHistorico } from "./storage.js";
-import { formatBR } from "./utils.js";
+// MUDANÇA AQUI: Renomeei para evitar conflito de nome
+import { formatBR as formatarMoeda } from "./utils.js"; 
 
-// ==================================================================== Helpers blindados ====================================================================//
+// ==================================================================== Helpers ====================================================================//
 function getJsPDF() {
-  // jsPDF UMD padrão (CDN): window.jspdf.jsPDF
   if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
-  // alguns builds expõem window.jsPDF
   if (window.jsPDF) return window.jsPDF;
   return null;
 }
@@ -20,7 +19,7 @@ function safeUUID() {
 }
 
 function calcularPagamento(total, dadosCliente) {
-  const TAXA = 0.0652; // 6,52% no crédito
+  const TAXA = 0.0652; 
   const pagamento = (dadosCliente.pagamento || "").toLowerCase();
   const parcelas = parseInt(dadosCliente.parcelas || "1", 10);
 
@@ -50,10 +49,11 @@ export async function enviarWhatsApp(carrinho, dadosCliente) {
   mensagem += `💳 *Pagamento:* ${dadosCliente.pagamento}\n\n`;
 
   if (pagamentoCalc.parcelas && pagamentoCalc.valorParcela) {
-    mensagem += `*Parcelamento:* ${pagamentoCalc.parcelas}x de ${formatBR(pagamentoCalc.valorParcela)}\n`;
-    mensagem += `*Total com acréscimo:* ${formatBR(pagamentoCalc.totalFinal)}\n\n`;
+    // USO DA NOVA FUNÇÃO RENOMEADA
+    mensagem += `*Parcelamento:* ${pagamentoCalc.parcelas}x de ${formatarMoeda(pagamentoCalc.valorParcela)}\n`;
+    mensagem += `*Total com acréscimo:* ${formatarMoeda(pagamentoCalc.totalFinal)}\n\n`;
   } else {
-    mensagem += `*Total:* ${formatBR(pagamentoCalc.totalFinal)}\n\n`;
+    mensagem += `*Total:* ${formatarMoeda(pagamentoCalc.totalFinal)}\n\n`;
   }
 
   mensagem += `*Itens do Orçamento:*\n`;
@@ -97,8 +97,8 @@ export async function gerarPDF(carrinho, dadosCliente) {
 
   const jsPDF = getJsPDF();
   if (!jsPDF) {
-    console.error("jsPDF não carregou. window.jspdf:", window.jspdf, "window.jsPDF:", window.jsPDF);
-    alert("jsPDF não carregou. Verifique o script do jsPDF no HTML e tente Ctrl+F5.");
+    console.error("jsPDF não carregou.");
+    alert("Erro ao carregar gerador de PDF.");
     return;
   }
 
@@ -109,7 +109,7 @@ export async function gerarPDF(carrinho, dadosCliente) {
   const totalBase = carrinho.reduce((soma, item) => soma + (Number(item.preco || 0) * (item.qtd || 1)), 0);
   const pagamentoCalc = calcularPagamento(totalBase, dadosCliente);
 
-  // ======= SEU PDF (mesmo layout) =======
+  // Layout do PDF
   doc.setFillColor(...azulMonteiro);
   doc.rect(0, 0, 210, 40, "F");
 
@@ -120,7 +120,7 @@ export async function gerarPDF(carrinho, dadosCliente) {
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("Assistência Técnica Especializada", 20, 32);
+  doc.text("Confiança que se instala com um clique", 20, 32);
 
   doc.setFontSize(9);
   doc.text("Rua Paulo Gelson Padilha, 58", 140, 20);
@@ -141,7 +141,7 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.setDrawColor(200, 200, 200);
   doc.line(20, 77, 190, 77);
 
-  // --- TABELA ---
+  // Tabela
   let y = 90;
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
@@ -156,11 +156,9 @@ export async function gerarPDF(carrinho, dadosCliente) {
     const preco = Number(item.preco || 0);
     const totalLinha = preco * qtd;
 
-    // Quebra de página simples para muitos itens
     if (y > 270) {
       doc.addPage();
       y = 30;
-
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
       doc.text("Qtd", 20, 25);
@@ -171,11 +169,12 @@ export async function gerarPDF(carrinho, dadosCliente) {
 
     doc.text(`${qtd}x`, 20, y);
     doc.text(`${item.modelo} - ${item.nome}`, 35, y);
-    doc.text(formatBR(totalLinha), 190, y, { align: "right" });
+    // USO DA NOVA FUNÇÃO RENOMEADA
+    doc.text(formatarMoeda(totalLinha), 190, y, { align: "right" });
     y += 8;
   });
 
-  // --- TOTAIS ---
+  // Totais
   y += 5;
   if (y > 270) {
     doc.addPage();
@@ -191,9 +190,17 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.text("TOTAL:", 130, y);
 
   doc.setTextColor(...azulMonteiro);
-  doc.text(formatBR(pagamentoCalc.totalFinal), 190, y, { align: "right" });
+  // USO DA NOVA FUNÇÃO RENOMEADA
+  doc.text(formatarMoeda(pagamentoCalc.totalFinal), 190, y, { align: "right" });
 
-  // --- TERMOS ---
+  if (pagamentoCalc.parcelas > 1) {
+      y += 6;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`(${pagamentoCalc.parcelas}x de ${formatarMoeda(pagamentoCalc.valorParcela)})`, 190, y, { align: "right" });
+  }
+
+  // Termos
   y += 20;
   if (y > 250) {
     doc.addPage();
@@ -229,7 +236,7 @@ export async function gerarPDF(carrinho, dadosCliente) {
     y += 5;
   });
 
-  // --- ASSINATURAS ---
+  // Assinaturas
   y += 15;
   if (y > 275) {
     doc.addPage();
@@ -242,22 +249,16 @@ export async function gerarPDF(carrinho, dadosCliente) {
   doc.text("Assinatura do Cliente", 40, y);
   doc.text("Responsável Monteiro Intech", 140, y);
 
-  // --- RODAPÉ ---
+  // Rodapé
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
   const dataH = new Date().toLocaleDateString("pt-BR");
   doc.text(`Documento gerado em ${dataH} via sistema Monteiro Intech.`, 105, 285, { align: "center" });
 
-  // ======= PONTO CRÍTICO: BAIXAR ANTES DE QUALQUER AWAIT =======
   const nomeArquivo = `Orcamento_${dadosCliente.nome}_${numeroOrcamento}.pdf`;
-
-  // gerar base64 (sincrono) e salvar
   const pdfBase64 = doc.output("datauristring");
-
-  // dispara o download IMEDIATAMENTE (PC não bloqueia)
   doc.save(nomeArquivo);
 
-  // salvar no histórico SEM impedir o download
   try {
     await salvarOrcamento({
       id: safeUUID(),
@@ -294,19 +295,20 @@ export async function atualizarDashboard() {
   if (elQtd) elQtd.textContent = qtd;
 
   const elTotal = document.getElementById("dash-total");
-  if (elTotal) elTotal.textContent = formatBR(total);
+  // USO DA NOVA FUNÇÃO RENOMEADA
+  if (elTotal) elTotal.textContent = formatarMoeda(total);
 
   const elTicket = document.getElementById("dash-ticket");
-  if (elTicket) elTicket.textContent = formatBR(ticketMedio);
+  if (elTicket) elTicket.textContent = formatarMoeda(ticketMedio);
 
   const elPix = document.getElementById("dash-pix");
-  if (elPix) elPix.textContent = formatBR(pix);
+  if (elPix) elPix.textContent = formatarMoeda(pix);
 
   const elCredito = document.getElementById("dash-credito");
-  if (elCredito) elCredito.textContent = formatBR(credito);
+  if (elCredito) elCredito.textContent = formatarMoeda(credito);
 
   const elDebito = document.getElementById("dash-debito");
-  if (elDebito) elDebito.textContent = formatBR(debito);
+  if (elDebito) elDebito.textContent = formatarMoeda(debito);
 }
 
 // Vincula ao window para uso global

@@ -28,7 +28,7 @@ const ui = {
   btnGerarPdf: el("btn-gerar-pdf"),
   btnClearCart: el("btn-clear-cart"),
 
-  // Admin
+  // Painel Admin e Dashboar
   abrirAdmin: el("abrir-admin"),
   painelAdmin: el("painel-admin"),
   sairAdmin: el("btn-sair-admin"),
@@ -55,7 +55,7 @@ const ui = {
   listaServicos: el("lista-servicos"),
 };
 
-// =========================== CONFIG ===========================//
+// =========================== CONFIGURAÇÕES ===========================//
 
 const ADMIN_PASSWORD = "132205";
 const ADMIN_SESSION_KEY = "mi_admin_authed";
@@ -63,7 +63,7 @@ const CART_STORAGE_KEY = "mi_cart_v1";
 
 let pendingCheckoutAction = null; // "wa" | "pdf"
 
-// =========================== Estado ===========================//
+// =========================== ESTADO DA APLICAÇÃO ===========================//
 
 let cart = [];
 let relatorios = [];
@@ -71,12 +71,10 @@ let catalogo = [];
 let activeBrand = "Todos";
 let searchText = "";
 
-//============================ Normalizações ===========================//
+//============================ FUNÇÕES AUXILIARES ===========================//
 
 function normalizePagamento(p) {
   const s = String(p || "").trim().toLowerCase();
-
-  // remove acentos (crédito -> credito)
   const noAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   if (noAccents.includes("pix")) return "pix";
@@ -85,13 +83,24 @@ function normalizePagamento(p) {
   return "outro";
 }
 
+function formatBRL(value) {
+  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function calcTotal() {
+  return cart.reduce((acc, item) => acc + (item.preco * (item.qtd || 1)), 0);
+}
+
+function showLoading(v) {ui.loading?.classList.toggle("hidden", !v);}
+function openPanel(node) { node?.classList.remove("hidden"); }
+function closePanel(node) { node?.classList.add("hidden"); }
+function isOpen(node) { return node && !node.classList.contains("hidden"); }
+
+// =========================== DASHBOARD ADMIN ===========================//
+
 function atualizarDashboardAdmin() {
   const qtd = relatorios.length;
-
-  let total = 0;
-  let pix = 0;
-  let debito = 0;
-  let credito = 0;
+  let total = 0; pix = 0; debito = 0; credito = 0;
 
   for (const r of relatorios) {
     const v = Number(r.total || 0);
@@ -105,6 +114,8 @@ function atualizarDashboardAdmin() {
 
   const ticket = qtd > 0 ? total / qtd : 0;
 
+// Atualiza os elementos do dashboard se existirem 
+
   const elQtd = document.getElementById("dash-qtd");
   const elTotal = document.getElementById("dash-total");
   const elPix = document.getElementById("dash-pix");
@@ -112,47 +123,30 @@ function atualizarDashboardAdmin() {
   const elCred = document.getElementById("dash-credito");
   const elTicket = document.getElementById("dash-ticket");
 
-  if (elQtd) elQtd.textContent = String(qtd);
-  if (elTotal) elTotal.textContent = formatBRL(total);
-  if (elPix) elPix.textContent = formatBRL(pix);
-  if (elDeb) elDeb.textContent = formatBRL(debito);
-  if (elCred) elCred.textContent = formatBRL(credito);
-  if (elTicket) elTicket.textContent = formatBRL(ticket);
+if (ui.dashQtd) ui.dashQtd.textContent = String(qtd);
+  if (el("dash-total")) el("dash-total").textContent = formatBRL(total);
+  if (el("dash-pix")) el("dash-pix").textContent = formatBRL(pix);
+  if (el("dash-debito")) el("dash-debito").textContent = formatBRL(debito);
+  if (el("dash-credito")) el("dash-credito").textContent = formatBRL(credito);
+  if (el("dash-ticket")) el("dash-ticket").textContent = formatBRL(ticket);
 }
 
-// =========================== Helpers ===========================//
+// ===========================  CARRINHO (LÓGICA E UI) ===========================//
 
-function showLoading(v) {ui.loading?.classList.toggle("hidden", !v);}
-function openPanel(node) { node?.classList.remove("hidden"); }
-function closePanel(node) { node?.classList.add("hidden"); }
-function isOpen(node) { return node && !node.classList.contains("hidden"); }
-
-function formatBRL(value) {
-  return (value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function saveCart() { 
+  try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); } catch {}
 }
-function calcTotal() {
-  return cart.reduce((acc, item) => acc + (item.preco * (item.qtd || 1)), 0);
-}
-
-// ===========================  Carrinho persistência ===========================//
-
-function saveCart() { try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); } catch {}}
 
 function loadCart() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) cart = parsed;
+    if (raw) cart = JSON.parse(raw);
   } catch {}
 }
-
-// =========================== Carrinho UI ===========================//
 
 function addToCart(servico) {
   if (!servico) return;
 
-  // chave única por serviço + marca + modelo (não mistura modelos diferentes)
   const nome = String(servico.nome || "").trim();
   const marca = String(servico.marca || "").trim();
   const modelo = String(servico.modelo || "").trim();
@@ -175,164 +169,140 @@ function addToCart(servico) {
 
   saveCart();
   renderCart();
-
   closeAdminPanel();
   openPanel(ui.cartSidebar);
 }
 
 function renderCart() {
+  // 1. Verificações de segurança
   if (!ui.cartItems || !ui.cartTotal) return;
-
+  
+  // Limpa o carrinho visualmente antes de renderizar de novo
   ui.cartItems.innerHTML = "";
 
+  // 2. Se o carrinho estiver vazio
   if (!cart.length) {
-    ui.cartItems.innerHTML = `<p style="opacity:.8">Seu orçamento está vazio.</p>`;
+    ui.cartItems.innerHTML = `<p style="opacity:.8; text-align:center; padding:20px;">Seu orçamento está vazio.</p>`;
     ui.cartTotal.textContent = `Total: ${formatBRL(0)}`;
     return;
   }
 
-  // 1) Agrupar por Marca + Modelo
+  // 3. Agrupar por Marca + Modelo
   const groups = new Map();
   for (const item of cart) {
-    const marca = String(item.marca || "").trim();
-    const modelo = String(item.modelo || "").trim();
-    const key = `${marca}|||${modelo}`.toLowerCase();
-
+    // Cria uma chave única para agrupar (ex: "samsung|||a32")
+    const key = `${item.marca}|||${item.modelo}`.toLowerCase();
+    
     if (!groups.has(key)) {
-      groups.set(key, { marca, modelo, items: [] });
+      groups.set(key, { marca: item.marca, modelo: item.modelo, items: [] });
     }
     groups.get(key).items.push(item);
   }
 
-  // 2) Ordenar grupos por marca/modelo
-  const sortedGroups = Array.from(groups.values()).sort((a, b) => {
-    const m = a.marca.localeCompare(b.marca);
-    if (m !== 0) return m;
-    return a.modelo.localeCompare(b.modelo);
-  });
-
-  // 3) Render dos grupos
-  sortedGroups.forEach((g) => {
-    // Cabeçalho do modelo (negrito)
+  // 4. Renderizar (Iterar sobre os grupos)
+  groups.forEach((g) => {
+    // --- Cabeçalho do Grupo (Marca e Modelo) ---
     const header = document.createElement("div");
-    header.style.padding = "12px 0 8px";
-    header.style.fontWeight = "900";
-    header.style.fontSize = "1.05rem";
-    header.style.letterSpacing = "-.2px";
-    header.style.borderBottom = "1px solid rgba(0,0,0,0.06)";
-    header.textContent = `${g.marca ? g.marca + " " : ""}${g.modelo}`.trim();
-
+    header.className = "cart-group-header"; // Usa classe do CSS
+    // Estilo inline de garantia caso o CSS falhe
+    header.style.cssText = "padding: 12px 0 5px; font-weight: 900; border-bottom: 1px solid #eee; color: #004aad;";
+    header.textContent = `${g.marca} ${g.modelo}`;
     ui.cartItems.appendChild(header);
 
-    // Ordenar itens por nome do serviço
-    g.items.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
-
-    // Linhas do modelo (um pouco menor)
+    // --- Itens do Grupo ---
     g.items.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "cart-item"; // Usa classe do CSS
+      // Estilo inline de garantia
+      row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #eee;";
+
       const qtd = item.qtd || 1;
       const preco = Number(item.preco || 0);
       const lineTotal = preco * qtd;
+      const showQtyLine = qtd > 1;
 
-      const row = document.createElement("div");
-      row.className = "cart-item";
-      row.style.display = "grid";
-      row.style.gridTemplateColumns = "1fr auto auto";
-      row.style.alignItems = "center";
-      row.style.gap = "10px";
-      row.style.padding = "10px 0";
-      row.style.borderBottom = "1px solid rgba(0,0,0,0.06)";
+      // HTML do Item
+      row.innerHTML = `
+        <div>
+          <div style="font-weight:600; font-size:.95rem; display:flex; gap:8px; align-items:baseline;">
+            <span>${item.nome}</span>
+            ${qtd > 1 ? `<span style="font-weight:800; opacity:.7;">x${qtd}</span>` : ""}
+          </div>
+          ${showQtyLine ? `<div style="opacity:.78; font-size:.84rem; margin-top:2px;">Unit: ${formatBRL(preco)}</div>` : ""}
+        </div>
 
-const showQtyLine = qtd > 1;
-
-row.innerHTML = `
-  <div>
-    <div style="font-weight:600; font-size:.95rem; line-height:1.15; display:flex; gap:8px; align-items:baseline;">
-      <span>${item.nome}</span>
-      ${qtd > 1 ? `<span style="font-weight:800; font-size:.85rem; opacity:.7;">x${qtd}</span>` : ""}
-    </div>
-
-    ${showQtyLine ? `<div style="opacity:.78; font-size:.84rem; margin-top:2px;">
-      Unit: ${formatBRL(preco)}
-    </div>` : ""}
-  </div>
-
-  <div style="font-weight:900; font-size:.95rem; white-space:nowrap;">
-    ${formatBRL(lineTotal)}
-  </div>
-
-  <button type="button" class="close-btn light" data-remove-key="${item.key}" title="Remover">✕</button>
-`;
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="font-weight:900; font-size:.95rem; white-space:nowrap;">
+            ${formatBRL(lineTotal)}
+          </div>
+          <button type="button" class="close-btn" data-remove-key="${item.key}" title="Remover" style="border:none; background:transparent; color:red; font-weight:bold; cursor:pointer; margin-left:10px;">✕</button>
+        </div>
+      `;
 
       ui.cartItems.appendChild(row);
     });
-
-    // Espaço entre grupos
-    const spacer = document.createElement("div");
-    spacer.style.height = "8px";
-    ui.cartItems.appendChild(spacer);
   });
 
+  // 5. Atualizar Total Geral
   ui.cartTotal.textContent = `Total: ${formatBRL(calcTotal())}`;
 
-  // Remover pelo key (mais seguro do que idx quando está agrupado)
+  // 6. Ativar botões de remover
   ui.cartItems.querySelectorAll("[data-remove-key]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.onclick = (e) => {
+      e.stopPropagation(); // Evita cliques acidentais
       const k = btn.getAttribute("data-remove-key");
-      const idx = cart.findIndex((x) => String(x.key) === String(k));
-      if (idx >= 0) cart.splice(idx, 1);
+      // Remove o item filtrando pelo ID único (key)
+      cart = cart.filter((x) => String(x.key) !== String(k));
       saveCart();
       renderCart();
-    });
+    };
   });
 }
 
-// =========================== Catálogo UI (busca + abas + grid) ===========================//
+
+// =========================== CATALOGO (UI, BUSCA, ABAS) ===========================//
 
 function ensureCatalogUI() {
   if (!ui.listaServicos) return;
 
   const hero = ui.listaServicos.querySelector(".hero-home");
 
+  // 1. Garante que o container de BUSCA exista
   let searchWrap = document.getElementById("search-wrap");
   if (!searchWrap) {
     searchWrap = document.createElement("div");
     searchWrap.id = "search-wrap";
     searchWrap.className = "search-container";
-    searchWrap.innerHTML = `<input id="app-search" type="text" placeholder="Buscar serviços..." />`;
-    hero?.after(searchWrap);
+    searchWrap.innerHTML = `<input id="app-search" class="input-standard" type="text" placeholder="🔍 Buscar peças e serviços..." />`;
+    
+    // Insere logo após o Hero (título)
+    if (hero) hero.after(searchWrap);
+    else ui.listaServicos.prepend(searchWrap);
   }
 
+  // 2. Garante que o container de ABAS exista
   let tabsWrap = document.getElementById("tabs-wrap");
   if (!tabsWrap) {
     tabsWrap = document.createElement("div");
     tabsWrap.id = "tabs-wrap";
     tabsWrap.className = "brand-tabs-container";
     tabsWrap.innerHTML = `<div class="brand-tabs" id="brand-tabs"></div>`;
+    
+    // Insere logo após a Busca (agora garantido que searchWrap existe)
     searchWrap.after(tabsWrap);
   }
 
-  let grid = document.getElementById("servicos-grid");
-  if (!grid) {
-    grid = document.createElement("div");
-    grid.id = "servicos-grid";
-    grid.style.display = "grid";
-    grid.style.gridTemplateColumns = "repeat(auto-fit, minmax(240px, 1fr))";
-    grid.style.gap = "14px";
-    grid.style.marginTop = "18px";
-
-    const container = ui.listaServicos.closest(".container") || ui.listaServicos;
-    container.appendChild(grid);
-  }
-
+  // 3. Garante que o input tenha o evento de digitação
   const input = document.getElementById("app-search");
   if (input && !input.dataset.bound) {
     input.dataset.bound = "1";
-    input.addEventListener("input", () => {
-      searchText = input.value || "";
+    input.addEventListener("input", (e) => {
+      searchText = e.target.value;
       renderCatalogo();
     });
   }
 }
+
 
 function buildBrandTabs() {
   const tabs = document.getElementById("brand-tabs");
@@ -357,82 +327,73 @@ function buildBrandTabs() {
 }
 
 function renderCatalogo() {
-  const grid = document.getElementById("servicos-grid");
-  if (!grid) return;
+  // 1. Encontra o lugar onde os serviços devem aparecer
+  let grid = document.getElementById("servicos-grid");
+  
+  // Se o grid ainda não existir no HTML, nós o criamos agora
+  if (!grid) {
+    grid = document.createElement("div");
+    grid.id = "servicos-grid";
+    // O estilo agora vem do style.css, mas garantimos a estrutura aqui
+    const container = ui.listaServicos.closest(".container") || ui.listaServicos;
+    container.appendChild(grid);
+  }
 
   const q = (searchText || "").trim().toLowerCase();
 
-  // 1) filtra pela aba (marca)
+  // 2. Filtra a lista baseada na aba selecionada (activeBrand)
   let list = [...catalogo];
   if (activeBrand !== "Todos") {
     list = list.filter((s) => (s.marca || "").trim() === activeBrand);
   }
 
-  // 2) agrupa por marca + modelo
+  // 3. Filtra pela busca (q)
+  if (q) {
+    list = list.filter((s) => 
+      `${s.marca} ${s.modelo} ${s.nome}`.toLowerCase().includes(q)
+    );
+  }
+
+  // 4. Agrupa por Marca + Modelo para criar os cards
   const groups = new Map();
   for (const s of list) {
     const marca = (s.marca || "").trim();
     const modelo = (s.modelo || "").trim();
     const key = `${marca}|||${modelo}`.toLowerCase();
 
-    if (!groups.has(key)) groups.set(key, { marca, modelo, items: [] });
+    if (!groups.has(key)) {
+      groups.set(key, { marca, modelo, items: [] });
+    }
     groups.get(key).items.push(s);
   }
 
-  const visibleGroups = [];
-  for (const g of groups.values()) {
-    const modelHay = `${g.marca} ${g.modelo}`.toLowerCase();
-
-    let itemsToShow = g.items;
-
-    if (q) {
-      const modelMatches = modelHay.includes(q);
-      if (!modelMatches) {
-        itemsToShow = g.items.filter((s) => String(s.nome || "").toLowerCase().includes(q));
-      }
-      if (!modelMatches && itemsToShow.length === 0) continue;
-    }
-
-    // ordena serviços dentro do modelo
-    itemsToShow.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || "")));
-
-    visibleGroups.push({ ...g, items: itemsToShow });
-  }
-
-  // ordena grupos por marca e modelo
-  visibleGroups.sort((a, b) => {
-    const m = a.marca.localeCompare(b.marca);
-    if (m !== 0) return m;
-    return a.modelo.localeCompare(b.modelo);
-  });
-
-  if (!visibleGroups.length) {
-    grid.innerHTML = `<div style="opacity:.8">Nenhum serviço encontrado.</div>`;
+  // 5. Se não houver nada, mostra um aviso
+  if (groups.size === 0) {
+    grid.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.7; grid-column: 1 / -1;">Nenhum serviço ou modelo encontrado para "${searchText}".</div>`;
     return;
   }
 
-  // 4) render: 1 card por modelo
-  grid.innerHTML = visibleGroups
+  // 6. Desenha os Cards de Modelo
+  grid.innerHTML = Array.from(groups.values())
+    .sort((a, b) => a.modelo.localeCompare(b.modelo)) // Ordena modelos de A-Z
     .map((g) => {
-      const headerTitle = `${g.marca} • ${g.modelo}`.trim();
+      // Ordena os serviços dentro do modelo (ex: Tela, Bateria...)
+      g.items.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
 
-      const rows = g.items
-        .map((s) => {
-          return `
-            <div class="model-service-row">
-              <div class="ms-name">${s.nome}</div>
-              <div class="ms-price">${formatBRL(s.preco)}</div>
-              <button type="button" class="ms-add" data-add="${s.id}">Adicionar</button>
-            </div>
-          `;
-        })
-        .join("");
+      const rows = g.items.map((s) => `
+        <div class="model-service-row">
+          <div class="ms-name">${s.nome}</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="ms-price">${formatBRL(s.preco)}</div>
+            <button type="button" class="ms-add" data-add="${s.id}">Add</button>
+          </div>
+        </div>
+      `).join("");
 
       return `
         <div class="model-card">
           <div class="model-card-header">
-            <div class="model-card-title">${headerTitle}</div>
-            <div class="model-card-sub">Escolha o serviço abaixo</div>
+            <div class="model-card-title">${g.marca} • ${g.modelo}</div>
           </div>
           <div class="model-card-body">
             ${rows}
@@ -442,13 +403,13 @@ function renderCatalogo() {
     })
     .join("");
 
-  // bind dos botões
+  // 7. Ativa os botões de "Adicionar"
   grid.querySelectorAll("[data-add]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.onclick = () => {
       const id = btn.getAttribute("data-add");
       const serv = catalogo.find((x) => String(x.id) === String(id));
-      addToCart(serv);
-    });
+      if (serv) addToCart(serv);
+    };
   });
 }
 
@@ -533,17 +494,57 @@ function parseAnyDate(r) {
 
 function normalizeRelatorio(r) {
   const d = parseAnyDate(r);
+
   return {
     id: r.id,
     cliente: r.cliente ?? r.clienteNome ?? r.nomeCliente ?? "-",
     pagamento: r.pagamento ?? r.formaPagamento ?? "-",
     total: Number(r.total ?? r.valorTotal ?? 0),
     dataISO: d.toISOString(),
+
+    // ✅ mantém PDF/URL se existir no Firestore
+    pdf: r.pdf ?? null,                 // ex: "data:application/pdf;base64,...."
+    pdfUrl: r.pdfUrl ?? r.pdf_url ?? null // ex: URL do Storage (recomendado)
   };
 }
 
+// 2) Helpers para abrir PDF (URL ou DataURI)
+function abrirPdfDoRegistro(reg) {
+  if (!reg) return;
+
+  // prioridade: URL (melhor)
+  if (reg.pdfUrl) {
+    window.open(reg.pdfUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  // datauri/base64
+  if (reg.pdf && String(reg.pdf).startsWith("data:application/pdf")) {
+    const dataUri = String(reg.pdf);
+
+    // converte base64 em Blob para abrir mais estável no PC
+    const base64 = dataUri.split(",")[1] || "";
+    const bytes = atob(base64);
+    const buf = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) buf[i] = bytes.charCodeAt(i);
+
+    const blob = new Blob([buf], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+
+    window.open(url, "_blank", "noopener,noreferrer");
+
+    // limpa depois (não precisa ficar pra sempre)
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+
+  alert("Este orçamento ainda não tem PDF salvo.");
+}
+
+// 3) Atualize o renderRelatorios() para colocar o botão "Abrir PDF"
 function renderRelatorios() {
   if (!ui.relatorioLista || !ui.dashQtd) return;
+
   ui.dashQtd.textContent = String(relatorios.length);
   ui.relatorioLista.innerHTML = "";
 
@@ -553,20 +554,43 @@ function renderRelatorios() {
   }
 
   relatorios.forEach((r) => {
+    const hasPdf = !!(r.pdfUrl || r.pdf);
+
     const card = document.createElement("div");
     card.className = "dash-card";
     card.style.marginTop = "10px";
+
     card.innerHTML = `
-      <div style="display:flex; justify-content:space-between; gap:10px">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
         <div>
           <div style="font-weight:900">${r.cliente || "-"}</div>
           <div style="opacity:.85; font-size:.9rem">${r.pagamento || "-"}</div>
           <div style="opacity:.75; font-size:.85rem">${new Date(r.dataISO).toLocaleString("pt-BR")}</div>
+
+          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button"
+              data-open-pdf="${r.id}"
+              class="btn-secondary-pdf"
+              style="width:auto; padding:10px 12px; border-radius:12px; ${hasPdf ? "" : "opacity:.5; pointer-events:none;"}">
+              📄 Abrir PDF
+            </button>
+          </div>
         </div>
-        <div style="font-weight:900">${formatBRL(r.total || 0)}</div>
+
+        <div style="font-weight:900; white-space:nowrap;">${formatBRL(r.total || 0)}</div>
       </div>
     `;
+
     ui.relatorioLista.appendChild(card);
+  });
+
+  // bind do botão abrir PDF
+  ui.relatorioLista.querySelectorAll("[data-open-pdf]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-open-pdf");
+      const reg = relatorios.find((x) => String(x.id) === String(id));
+      abrirPdfDoRegistro(reg);
+    });
   });
 }
 

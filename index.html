@@ -9,20 +9,16 @@
   <link rel="icon" href="assets/favicon-16x16.png" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
 
-<!-- jsPDF primeiro -->
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-<!-- (opcional) PapaParse se você usa import CSV -->
-<script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
-<!-- seu app por último -->
-<script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js"></script>
 </head>
 
 <body>
   <header class="topbar">
     <div class="brand">Monteiro Intech</div>
-    <div style="display:flex; gap:10px;">
+    <div class="topbar-actions">
       <button type="button" id="cart-toggle" class="cart-btn">🛒 Carrinho</button>
       <button type="button" id="abrir-admin" class="admin-btn">⚙️ Admin</button>
     </div>
@@ -34,176 +30,129 @@
   </div>
 
   <div id="container-admin-carrinho">
-    <!----------------------- Admin (sidebar direita) --------------------------->
     <section id="painel-admin" class="painel-admin hidden">
-      <div style="margin-top:18px; padding:14px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px;">
-  <h3 style="margin:0 0 10px; font-size:1rem;">📥 Importar Catálogo (CSV → Firestore)</h3>
+      <div class="admin-import-box">
+        <h3>📥 Importar Catálogo (CSV → Firestore)</h3>
+        <input id="csv-url" type="url" placeholder="Cole a URL direta do CSV (https://...)" class="input-standard" />
+        <div class="admin-actions-row">
+          <button type="button" id="btn-importar-csv-url" class="btn-secondary-pdf">Importar da URL</button>
+          <label class="btn-secondary-pdf clickable-label" for="csv-file">Importar Arquivo</label>
+          <input id="csv-file" type="file" accept=".csv,text/csv" hidden />
+        </div>
+        <div id="import-status" class="status-msg"></div>
+        <p class="helper-text">Observação: URL precisa permitir CORS. Caso contrário, use “Importar Arquivo”.</p>
+      </div>
 
-  <input id="csv-url" type="url" placeholder="Cole a URL direta do CSV (https://...)" style="width:100%; padding:12px; border-radius:12px; border:1px solid #e5e7eb; outline:none; margin-bottom:10px;" />
-
-  <div style="display:flex; gap:10px; flex-wrap:wrap;">
-    <button type="button" id="btn-importar-csv-url" class="btn-secondary-pdf" style="flex:1;">Importar da URL</button>
-
-    <label class="btn-secondary-pdf" style="flex:1; cursor:pointer; text-align:center;" for="csv-file">
-      Importar Arquivo
-    </label>
-    <input id="csv-file" type="file" accept=".csv,text/csv" hidden />
-  </div>
-
-  <div id="import-status" style="margin-top:10px; font-weight:700; opacity:.85;"></div>
-
-  <p style="margin:10px 0 0; font-size:.85rem; opacity:.75; line-height:1.35;">
-    Observação: URL precisa permitir CORS. Se der erro de CORS, use “Importar Arquivo”.
-  </p>
-</div>
       <div class="admin-header">
         <h2>Painel Administrativo</h2>
-        <button type="button" id="btn-sair-admin">Sair</button>
+        <button type="button" id="btn-sair-admin" class="btn-exit">Sair</button>
       </div>
 
       <div id="dashboard-admin" class="dashboard">
-  <div class="dash-card">
-    <h3>📄 Orçamentos</h3>
-    <span id="dash-qtd">0</span>
-  </div>
+        <div class="dash-card"><h3>📄 Orçamentos</h3><span id="dash-qtd">0</span></div>
+        <div class="dash-card"><h3>💰 Total</h3><span id="dash-total">R$ 0,00</span></div>
+        <div class="dash-card"><h3>🟢 PIX</h3><span id="dash-pix">R$ 0,00</span></div>
+        <div class="dash-card"><h3>🔵 Débito</h3><span id="dash-debito">R$ 0,00</span></div>
+        <div class="dash-card"><h3>🟣 Crédito</h3><span id="dash-credito">R$ 0,00</span></div>
+        <div class="dash-card"><h3>📈 Ticket Médio</h3><span id="dash-ticket">R$ 0,00</span></div>
+        
+        <div class="dash-card wide-card">
+          <h3>⬇️ Baixar Dashboard (por período)</h3>
+          <div class="date-filter-row">
+            <div class="input-group">
+              <label>Data inicial</label>
+              <input id="dash-date-start" type="date">
+            </div>
+            <div class="input-group">
+              <label>Data final</label>
+              <input id="dash-date-end" type="date">
+            </div>
+            <button type="button" id="btn-exportar-dashboard" class="btn-secondary-pdf">📊 Baixar CSV</button>
+          </div>
+          <div id="dash-export-status" class="status-msg"></div>
+        </div>
+      </div>
 
-  <div class="dash-card">
-    <h3>💰 Total</h3>
-    <span id="dash-total">R$ 0,00</span>
-  </div>
+      <div class="dash-card wide-card">
+        <h3>🧮 Atualizar Tabela (colar lista + aplicar custos)</h3>
+        <label class="label-bold">Cole aqui a lista:</label>
+        <textarea id="tabela-raw" rows="10" class="input-standard"></textarea>
 
-  <div class="dash-card">
-    <h3>🟢 PIX</h3>
-    <span id="dash-pix">R$ 0,00</span>
-  </div>
+        <div class="cost-grid">
+          <div class="input-group">
+            <label>Mão de obra (R$)</label>
+            <input id="tabela-mao" type="number" step="0.01" value="0">
+          </div>
+          <div class="input-group">
+            <label>Frete (R$)</label>
+            <input id="tabela-frete" type="number" step="0.01" value="0">
+          </div>
+          <div class="input-group">
+            <label>Porcentagem (%)</label>
+            <input id="tabela-perc" type="number" step="0.01" value="0">
+          </div>
+        </div>
 
-  <div class="dash-card">
-    <h3>🔵 Débito</h3>
-    <span id="dash-debito">R$ 0,00</span>
-  </div>
+        <div class="brand-select-row">
+          <label>Marca</label>
+          <select id="tabela-marca" class="input-standard">
+            <option value="Samsung" selected>Samsung</option>
+            <option value="Motorola">Motorola</option>
+            <option value="Xiaomi">Xiaomi</option>
+            <option value="Apple">Apple (iPhone)</option>
+            <option value="LG">LG</option>
+            <option value="Infinix">Infinix</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
 
-  <div class="dash-card">
-    <h3>🟣 Crédito</h3>
-    <span id="dash-credito">R$ 0,00</span>
-  </div>
-
-  <div class="dash-card">
-    <h3>📈 Ticket Médio</h3>
-    <span id="dash-ticket">R$ 0,00</span>
-  </div>
-</div>
-
-<div class="dash-card" style="text-align:left;">
-  <h3>🧮 Atualizar Tabela (colar lista + aplicar custos)</h3>
-
-  <label style="display:block; font-weight:900; margin:10px 0 6px;">Cole aqui a lista:</label>
-  <textarea id="tabela-raw" rows="10" style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:12px; outline:none;"></textarea>
-
-  <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px;">
-    <div>
-      <label style="display:block; font-weight:900; margin-bottom:6px;">Mão de obra (R$)</label>
-      <input id="tabela-mao" type="number" step="0.01" value="0"
-        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
-    </div>
-    <div>
-      <label style="display:block; font-weight:900; margin-bottom:6px;">Frete (R$)</label>
-      <input id="tabela-frete" type="number" step="0.01" value="0"
-        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
-    </div>
-    <div>
-      <label style="display:block; font-weight:900; margin-bottom:6px;">Porcentagem (%)</label>
-      <input id="tabela-perc" type="number" step="0.01" value="0"
-        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
-    </div>
-  </div>
-
-  <div style="margin-top:10px;">
-  <label style="display:block; font-weight:900; margin-bottom:6px;">Marca</label>
-  <select id="tabela-marca"
-    style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
-    <option value="Samsung" selected>Samsung</option>
-    <option value="Motorola">Motorola</option>
-    <option value="Xiaomi">Xiaomi</option>
-    <option value="Apple">Apple (iPhone)</option>
-    <option value="LG">LG</option>
-    <option value="Infinix">Infinix</option>
-    <option value="Outros">Outros</option>
-  </select>
-  </div>
-
-  <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-    <button type="button" id="tabela-preview" class="btn-secondary-pdf">Pré-visualizar</button>
-    <button type="button" id="tabela-aplicar" class="btn-primary-wa">Aplicar no Firebase</button>
-  </div>
-
-  <div id="tabela-status" style="margin-top:10px; font-weight:800; opacity:.85;"></div>
-
-  <div id="tabela-preview-box"
-       style="margin-top:10px; overflow:auto; max-height:260px; border:1px solid rgba(0,0,0,.06); border-radius:12px; padding:10px; background:#fff;">
-  </div>
-
-  <p style="margin:10px 0 0; font-size:.85rem; opacity:.75;">
-    Fórmula: <b>(preço_base + mão_de_obra + frete) × (1 + %/100)</b>
-  </p>
-</div>
+        <div class="admin-actions-row">
+          <button type="button" id="tabela-preview" class="btn-secondary-pdf">Pré-visualizar</button>
+          <button type="button" id="tabela-aplicar" class="btn-primary-wa">Aplicar no Firebase</button>
+        </div>
+        <div id="tabela-status" class="status-msg"></div>
+        <div id="tabela-preview-box" class="preview-box"></div>
+        <p class="helper-text">Fórmula: (preço_base + mão_de_obra + frete) × (1 + %/100)</p>
+      </div>
 
       <h2>Relatórios de Orçamentos</h2>
       <div id="relatorio-lista"></div>
-
-      <button type="button" id="btn-exportar-relatorio" class="btn-secondary-pdf">
-        📊 Exportar Relatório (Excel)
-      </button>
+      <button type="button" id="btn-exportar-relatorio" class="btn-secondary-pdf">📊 Exportar Relatório (Excel)</button>
     </section>
 
-    <!-- Carrinho (sidebar direita) -->
-    <div id="cart-sidebar" class="cart-sidebar hidden">
+    <aside id="cart-sidebar" class="cart-sidebar hidden">
       <div class="cart-header">
         <h3>Seu Orçamento</h3>
-        <button type="button" id="cart-close" class="close-btn" aria-label="Fechar carrinho">✕</button>
+        <button type="button" id="cart-close" class="close-btn">✕</button>
       </div>
-
       <div id="cart-items" class="cart-items"></div>
-
       <div class="cart-footer">
         <div id="cart-total" class="cart-total">Total: R$ 0,00</div>
         <button type="button" id="btn-open-wa" class="btn-primary-wa">🚀 Finalizar no WhatsApp</button>
         <button type="button" id="btn-gerar-pdf" class="btn-secondary-pdf">📄 Gerar PDF</button>
         <button type="button" id="btn-clear-cart" class="btn-clear-link">Limpar Carrinho</button>
       </div>
-    </div>
+    </aside>
 
-    <!-- Conteúdo principal -->
-    <div id="main-content">
-      <main class="container">
-        <section id="lista-servicos">
-          <div class="hero-home">
-            <h1>Bem-vindo à Monteiro Intech</h1>
-            <p>Aqui a confiança que se instala com um clique.</p>
-          </div>
-          <!-- O main.js vai inserir aqui: busca, abas e grid de serviços -->
-        </section>
-      </main>
-    </div>
+    <main id="main-content" class="container">
+      <section id="lista-servicos">
+        <div class="hero-home">
+          <h1>Bem-vindo à Monteiro Intech</h1>
+          <p>Aqui a confiança que se instala com um clique.</p>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <!-------------------------------- Modal Orçamento --------------------------->
-  <div
-    id="modal-orcamento"
-    class="modal hidden"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="titulo-modal-orcamento"
-  >
+  <div id="modal-orcamento" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-central">
       <div class="modal-header">
-        <h3 id="titulo-modal-orcamento">Confirmar Orçamento</h3>
-        <button type="button" id="modal-orcamento-fechar" class="close-btn" aria-label="Fechar modal">✕</button>
+        <h3>Confirmar Orçamento</h3>
+        <button type="button" id="modal-orcamento-fechar" class="close-btn">✕</button>
       </div>
-
       <div class="modal-body">
         <label for="cliente-nome">Nome do Cliente:</label>
         <input type="text" id="cliente-nome" placeholder="Digite o nome..." required />
-
         <label for="forma-pagamento">Forma de Pagamento:</label>
         <select id="forma-pagamento">
           <option value="">Selecione...</option>
@@ -211,7 +160,6 @@
           <option value="Debito">Débito</option>
           <option value="Credito">Crédito</option>
         </select>
-
         <select id="parcelas" class="hidden">
           <option value="1">1x (Com Juros)</option>
           <option value="2">2x (Com Juros)</option>
@@ -221,40 +169,23 @@
           <option value="6">6x (Com Juros)</option>
         </select>
       </div>
-
       <div class="modal-footer">
         <button type="button" id="btn-confirmar-orcamento" class="btn btn-primary-wa">Confirmar</button>
       </div>
     </div>
   </div>
 
-  <!--------------------- Modal Login Admin ------------------ -->
-  <div
-    id="modal-admin-login"
-    class="modal hidden"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="titulo-modal-admin"
-  >
+  <div id="modal-admin-login" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-central">
       <div class="modal-header">
-        <h3 id="titulo-modal-admin">Acesso Admin</h3>
-        <button type="button" id="modal-admin-fechar" class="close-btn" aria-label="Fechar">✕</button>
+        <h3>Acesso Admin</h3>
+        <button type="button" id="modal-admin-fechar" class="close-btn">✕</button>
       </div>
-
       <div class="modal-body">
         <label for="admin-pass">Senha:</label>
-        <input
-          type="password"
-          id="admin-pass"
-          placeholder="Digite a senha..."
-          autocomplete="current-password"
-        />
-        <p id="admin-err" style="display:none; margin:8px 0 0; color:#dc2626; font-weight:800;">
-          Senha inválida.
-        </p>
+        <input type="password" id="admin-pass" placeholder="Digite a senha..." autocomplete="current-password" />
+        <p id="admin-err" class="error-msg">Senha inválida.</p>
       </div>
-
       <div class="modal-footer">
         <button type="button" id="btn-admin-entrar" class="btn-secondary-pdf">Entrar</button>
       </div>
@@ -264,13 +195,11 @@
   <footer class="rodape-intech">
     <h3>Monteiro Intech</h3>
     <p>Confiança que se instala com um clique.</p>
-
     <div class="social-links">
       <a href="https://wa.me/5555997005039" target="_blank" rel="noopener noreferrer">WhatsApp</a>
       <a href="https://www.instagram.com/intech.monteiro/" target="_blank" rel="noopener noreferrer">Instagram</a>
       <a href="https://www.facebook.com/intech.monteiro?locale=pt_BR" target="_blank" rel="noopener noreferrer">Facebook</a>
     </div>
-
     <p class="creditos">© 2025 Monteiro Intech — Todos os direitos reservados.</p>
   </footer>
 </body>

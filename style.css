@@ -706,3 +706,173 @@ a:hover{ text-decoration:underline; }
 #tabela-preview-box{
   background:#fff;
 }
+#dash-export-status{
+  color: #111827 ;
+}
+/* --- Estilos Administrativos e Gerais --- */
+
+.admin-import-box {
+  margin-top: 18px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+}
+
+.input-standard {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+.admin-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.clickable-label {
+  flex: 1;
+  cursor: pointer;
+  text-align: center;
+}
+
+.status-msg {
+  margin-top: 10px;
+  font-weight: 700;
+  opacity: .85;
+}
+
+.helper-text {
+  margin: 10px 0 0;
+  font-size: .85rem;
+  opacity: .75;
+  line-height: 1.35;
+}
+
+.wide-card {
+  text-align: left !important;
+}
+
+.date-filter-row, .cost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.input-group label {
+  display: block;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.input-group input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.label-bold {
+  display: block;
+  font-weight: 900;
+  margin: 10px 0 6px;
+}
+
+.brand-select-row {
+  margin-top: 10px;
+}
+
+.preview-box {
+  margin-top: 10px;
+  overflow: auto;
+  max-height: 260px;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.error-msg {
+  display: none;
+  margin: 8px 0 0;
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.btn-exit {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+/* --- AJUSTE NO BOTÃO ADD E PREÇO --- */
+
+.model-service-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background: #f8f9fa; /* Fundo leve para destacar a linha */
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: var(--transition);
+}
+
+.model-service-row:hover {
+    background: #f1f3f5;
+}
+
+.ms-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333;
+    flex: 1; /* Garante que o nome ocupe o espaço restante */
+}
+
+/* Container do Preço + Botão */
+.model-service-row > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Espaço fixo entre preço e botão */
+}
+
+.ms-price {
+    font-weight: 800;
+    color: var(--primary);
+    font-size: 1rem;
+    white-space: nowrap; /* Impede que o preço quebre em duas linhas */
+    background: #eef2f7;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.ms-add {
+    background: var(--primary); /* Azul Monteiro Intech */
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 74, 173, 0.2);
+}
+
+.ms-add:hover {
+    background: #003a8c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 74, 173, 0.3);
+}
+
+.ms-add:active {
+    transform: translateY(0);
+}
