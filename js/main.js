@@ -1,5 +1,17 @@
-import { listenOrcamentos, getCatalogoOnce, importCatalogoFromCsvRows, CATALOGO_COLLECTION } from "./firebase.js";
-import { gerarPDF, enviarWhatsApp } from "./acoes.js";
+import {
+  listenOrcamentos,
+  getCatalogoOnce,
+  importCatalogoFromCsvRows,
+  CATALOGO_COLLECTION,
+  upsertTabelaPrecos
+} from "./firebase.js";
+
+let __acoesCache = null;
+async function getAcoes() {
+  if (__acoesCache) return __acoesCache;
+  __acoesCache = await import("./acoes.js");
+  return __acoesCache;
+}
 
 const el = (id) => document.getElementById(id);
 
@@ -43,7 +55,7 @@ const ui = {
   listaServicos: el("lista-servicos"),
 };
 
-// =========================== CONFIG ===========================
+// =========================== CONFIG ===========================//
 
 const ADMIN_PASSWORD = "132205";
 const ADMIN_SESSION_KEY = "mi_admin_authed";
@@ -51,7 +63,7 @@ const CART_STORAGE_KEY = "mi_cart_v1";
 
 let pendingCheckoutAction = null; // "wa" | "pdf"
 
-// =========================== Estado ===========================
+// =========================== Estado ===========================//
 
 let cart = [];
 let relatorios = [];
@@ -59,10 +71,58 @@ let catalogo = [];
 let activeBrand = "Todos";
 let searchText = "";
 
-// =========================== Helpers ===========================
-function showLoading(v) {
-  ui.loading?.classList.toggle("hidden", !v);
+//============================ Normalizações ===========================//
+
+function normalizePagamento(p) {
+  const s = String(p || "").trim().toLowerCase();
+
+  // remove acentos (crédito -> credito)
+  const noAccents = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  if (noAccents.includes("pix")) return "pix";
+  if (noAccents.includes("deb")) return "debito";
+  if (noAccents.includes("cred")) return "credito";
+  return "outro";
 }
+
+function atualizarDashboardAdmin() {
+  const qtd = relatorios.length;
+
+  let total = 0;
+  let pix = 0;
+  let debito = 0;
+  let credito = 0;
+
+  for (const r of relatorios) {
+    const v = Number(r.total || 0);
+    total += v;
+
+    const tipo = normalizePagamento(r.pagamento);
+    if (tipo === "pix") pix += v;
+    else if (tipo === "debito") debito += v;
+    else if (tipo === "credito") credito += v;
+  }
+
+  const ticket = qtd > 0 ? total / qtd : 0;
+
+  const elQtd = document.getElementById("dash-qtd");
+  const elTotal = document.getElementById("dash-total");
+  const elPix = document.getElementById("dash-pix");
+  const elDeb = document.getElementById("dash-debito");
+  const elCred = document.getElementById("dash-credito");
+  const elTicket = document.getElementById("dash-ticket");
+
+  if (elQtd) elQtd.textContent = String(qtd);
+  if (elTotal) elTotal.textContent = formatBRL(total);
+  if (elPix) elPix.textContent = formatBRL(pix);
+  if (elDeb) elDeb.textContent = formatBRL(debito);
+  if (elCred) elCred.textContent = formatBRL(credito);
+  if (elTicket) elTicket.textContent = formatBRL(ticket);
+}
+
+// =========================== Helpers ===========================//
+
+function showLoading(v) {ui.loading?.classList.toggle("hidden", !v);}
 function openPanel(node) { node?.classList.remove("hidden"); }
 function closePanel(node) { node?.classList.add("hidden"); }
 function isOpen(node) { return node && !node.classList.contains("hidden"); }
@@ -74,12 +134,10 @@ function calcTotal() {
   return cart.reduce((acc, item) => acc + (item.preco * (item.qtd || 1)), 0);
 }
 
-// ===========================
-// Carrinho persistência
-// ===========================
-function saveCart() {
-  try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); } catch {}
-}
+// ===========================  Carrinho persistência ===========================//
+
+function saveCart() { try { localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); } catch {}}
+
 function loadCart() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
@@ -89,7 +147,8 @@ function loadCart() {
   } catch {}
 }
 
-// =========================== Carrinho UI ===========================
+// =========================== Carrinho UI ===========================//
+
 function addToCart(servico) {
   if (!servico) return;
 
@@ -227,7 +286,8 @@ row.innerHTML = `
   });
 }
 
-// =========================== Catálogo UI (busca + abas + grid) ===========================
+// =========================== Catálogo UI (busca + abas + grid) ===========================//
+
 function ensureCatalogUI() {
   if (!ui.listaServicos) return;
 
@@ -319,9 +379,6 @@ function renderCatalogo() {
     groups.get(key).items.push(s);
   }
 
-  // 3) busca inteligente:
-  // - se buscar por "S20", mostra todos os serviços do S20
-  // - se buscar por "Tela", mostra só os serviços que têm "Tela"
   const visibleGroups = [];
   for (const g of groups.values()) {
     const modelHay = `${g.marca} ${g.modelo}`.toLowerCase();
@@ -445,7 +502,7 @@ function sendToWhatsApp(meta) {
 
 
 
-// =========================== Admin  ===========================
+// =========================== Admin  ===========================//
 
 function isAdminAuthed() { return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1"; }
 function setAdminAuthed(v) { sessionStorage.setItem(ADMIN_SESSION_KEY, v ? "1" : "0"); }
@@ -464,9 +521,8 @@ function openAdminPanel() {
 }
 function closeAdminPanel() { closePanel(ui.painelAdmin); }
 
-// ===========================
-// Relatórios (Admin)
-// ===========================
+// =========================== Relatórios (Admin) ===========================//
+
 function parseAnyDate(r) {
   const raw = r.dataISO ?? r.createdAt ?? r.data ?? r.created_at ?? null;
   if (!raw) return new Date(0);
@@ -474,6 +530,7 @@ function parseAnyDate(r) {
   const d = new Date(raw);
   return isNaN(d.getTime()) ? new Date(0) : d;
 }
+
 function normalizeRelatorio(r) {
   const d = parseAnyDate(r);
   return {
@@ -484,6 +541,7 @@ function normalizeRelatorio(r) {
     dataISO: d.toISOString(),
   };
 }
+
 function renderRelatorios() {
   if (!ui.relatorioLista || !ui.dashQtd) return;
   ui.dashQtd.textContent = String(relatorios.length);
@@ -511,6 +569,7 @@ function renderRelatorios() {
     ui.relatorioLista.appendChild(card);
   });
 }
+
 function exportRelatorioCSV() {
   if (!relatorios.length) return alert("Sem dados para exportar.");
 
@@ -535,9 +594,8 @@ function exportRelatorioCSV() {
   URL.revokeObjectURL(url);
 }
 
-// ===========================
-// Importação CSV (Admin)
-// ===========================
+// =========================== Importação CSV (Admin)  ===========================//
+
 function setImportStatus(msg, isError = false) {
   const box = document.getElementById("import-status");
   if (!box) return;
@@ -618,10 +676,6 @@ ui.btnGerarPdf?.addEventListener("click", () => { if (!cart.length) return alert
 
 ui.modalOrcFechar?.addEventListener("click", closeModalOrcamento);
 ui.formaPagamento?.addEventListener("change", handlePagamentoChange);
-ui.btnConfirmarOrc?.addEventListener("click", () => {
-  const meta = getOrcamentoMeta();
-  if (!meta.cliente) return alert("Informe o nome do cliente.");
-  if (!meta.pagamento) return alert("Selecione a forma de pagamento.");
 ui.btnConfirmarOrc?.addEventListener("click", async () => {
   const meta = getOrcamentoMeta();
   if (!meta.cliente) return alert("Informe o nome do cliente.");
@@ -646,9 +700,7 @@ ui.btnConfirmarOrc?.addEventListener("click", async () => {
     alert("Erro ao gerar PDF/WhatsApp. Veja o console (F12).");
   }
 });
-});
 ui.modalOrc?.addEventListener("click", (e) => { if (e.target === ui.modalOrc) closeModalOrcamento(); });
-
 ui.abrirAdmin?.addEventListener("click", () => { if (isAdminAuthed()) openAdminPanel(); else openAdminLogin(); });
 ui.modalAdminFechar?.addEventListener("click", closeAdminLogin);
 ui.btnAdminEntrar?.addEventListener("click", () => {
@@ -659,7 +711,6 @@ ui.btnAdminEntrar?.addEventListener("click", () => {
 ui.adminPass?.addEventListener("keydown", (e) => { if (e.key === "Enter") ui.btnAdminEntrar?.click(); });
 ui.modalAdminLogin?.addEventListener("click", (e) => { if (e.target === ui.modalAdminLogin) closeAdminLogin(); });
 ui.sairAdmin?.addEventListener("click", () => { setAdminAuthed(false); closeAdminPanel(); });
-
 ui.btnExportarRelatorio?.addEventListener("click", () => { if (!isAdminAuthed()) return alert("Acesso negado."); exportRelatorioCSV(); });
 
 document.addEventListener("keydown", (e) => {
@@ -670,6 +721,232 @@ document.addEventListener("keydown", (e) => {
   else if (isOpen(ui.cartSidebar)) closePanel(ui.cartSidebar);
 });
 
+function parseMoneyBR(str) {
+  // pega o ÚLTIMO número da linha (funciona com "R$65,00" e também "C/ARO165,00")
+  const cleaned = String(str || "")
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function normalizeSpaces(s) {
+  return String(s || "")
+    .replace(/[-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+//=============================== ROBO AUTOMATIZAÇÃO DE PREÇO ==========================//
+
+function parseLinhaTabela(line) {
+  const raw = normalizeSpaces(line);
+
+  const priceMatch = raw.match(/(?:R\$\s*)?(\d[\d.]*[,\.]\d{2,3})\s*$/i);
+  if (!priceMatch) return { error: "Sem preço no final (ex: R$65,00)" };
+
+  const precoBase = parseMoneyBR(priceMatch[1]);
+  if (precoBase === null) return { error: "Preço inválido" };
+
+  let left = normalizeSpaces(raw.slice(0, priceMatch.index));
+
+  // remove C/ARO / COM ARO / SEM ARO do texto (mas NÃO usa isso no nome do serviço)
+  left = left.replace(/(C\/\s*ARO|COM\s+ARO)/ig, " ");
+  left = left.replace(/(S\/\s*ARO|SEM\s+ARO)/ig, " ");
+
+  let categoria = "Tela Incell";
+  const has = (re) => re.test(left);
+
+  if (has(/\bOLED\b/i)) {
+    categoria = "Tela OLED";
+    left = left.replace(/\bOLED\b/ig, " ");
+  } else if (has(/\bINCEL(L)?\b/i)) {
+    categoria = "Tela Incell";
+    left = left.replace(/\bINCEL(L)?\b/ig, " ");
+  } else if (has(/\b(NACIONAL|VIVID|ORI|ORIGINAL)\b/i)) {
+    // vivid/original -> nacional
+    categoria = "Tela Nacional";
+    left = left.replace(/\b(NACIONAL|VIVID|ORI|ORIGINAL)\b/ig, " ");
+  }
+
+  left = normalizeSpaces(left);
+
+  let modelStr = left.replace(/\s+E\s+/gi, "/").replace(/\s+e\s+/g, "/");
+  const parts = modelStr.split("/").map(p => normalizeSpaces(p)).filter(Boolean);
+
+  const modelos = [];
+  if (parts.length === 2 && /^(4g|5g)$/i.test(parts[1]) && parts[0].includes(" ")) {
+    const base = parts[0].split(" ")[0];
+    modelos.push(parts[0], `${base} ${parts[1].toUpperCase()}`);
+  } else {
+    modelos.push(...parts);
+  }
+
+  // ✅ SEM "C/ARO" no serviço
+  const servico = categoria.trim();
+
+  return { modelos, servico, precoBase };
+}
+
+function consolidarMaiorPreco(entries) {
+  const map = new Map(); // key -> entry com maior precoFinal
+
+  for (const e of entries) {
+    const marca = String(e.marca || "").trim().toLowerCase();
+    const modelo = String(e.modelo || "").trim().toLowerCase();
+    const servico = String(e.servico || "").trim().toLowerCase();
+    const key = `${marca}|||${modelo}|||${servico}`;
+
+    const atual = map.get(key);
+    if (!atual || Number(e.precoFinal || 0) > Number(atual.precoFinal || 0)) {
+      map.set(key, e);
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function arredondaPraCimaDe10(v) {
+  const n = Number(v || 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.ceil(n / 10) * 10;
+}
+
+function calcularFinal(precoBase, mao, frete, perc) {
+  const base = Number(precoBase || 0) + Number(mao || 0) + Number(frete || 0);
+  const mult = 1 + (Number(perc || 0) / 100);
+  const bruto = base * mult;
+  return arredondaPraCimaDe10(bruto);
+}
+
+function aplicarRegrasTabela(entries) {
+
+  const keyCat = (e) => {
+    const cat = String(e.servico || "").replace(/\s+C\/ARO$/i, "").trim();
+    return `${String(e.marca).toLowerCase()}|||${String(e.modelo).toLowerCase()}|||${cat.toLowerCase()}`;
+  };
+
+  const hasAro = new Set();
+  for (const e of entries) {
+    if (/\sC\/ARO$/i.test(e.servico)) {
+      hasAro.add(keyCat(e));
+    }
+  }
+
+  const filtered = entries.filter((e) => {
+    const catKey = keyCat(e);
+    const isAro = /\sC\/ARO$/i.test(e.servico);
+    if (!isAro && hasAro.has(catKey)) return false;
+    return true;
+  });
+
+  return filtered;
+}
+
+function setTabelaStatus(msg, isError = false) {
+  const el = document.getElementById("tabela-status");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.style.color = isError ? "#dc2626" : "#111827";
+}
+
+function renderPreviewTabela(entries) {
+  const box = document.getElementById("tabela-preview-box");
+  if (!box) return;
+
+  if (!entries.length) {
+    box.innerHTML = `<div style="opacity:.8;">Sem itens para mostrar.</div>`;
+    return;
+  }
+
+  box.innerHTML = entries.slice(0, 80).map(e => `
+    <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; padding:8px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+      <div>
+        <div style="font-weight:900;">${e.marca} ${e.modelo}</div>
+        <div style="opacity:.75; font-size:.9rem;">${e.servico}</div>
+      </div>
+      <div style="font-weight:950; color:#004aad; white-space:nowrap;">${formatBRL(e.precoFinal)}</div>
+    </div>
+  `).join("") + (entries.length > 80 ? `<div style="padding-top:8px; opacity:.7;">... +${entries.length - 80} itens</div>` : "");
+}
+
+function bindTabelaFerramenta() {
+  const ta = document.getElementById("tabela-raw");
+  const inMarca = document.getElementById("tabela-marca");
+  const inMao = document.getElementById("tabela-mao");
+  const inFrete = document.getElementById("tabela-frete");
+  const inPerc = document.getElementById("tabela-perc");
+  const btnPrev = document.getElementById("tabela-preview");
+  const btnAplicar = document.getElementById("tabela-aplicar");
+
+  if (!ta || !btnPrev || !btnAplicar) return;
+
+  // ✅ FUNÇÃO que sempre pega a marca atual do select
+  const getMarcaSelecionada = () => String(inMarca?.value || "Samsung").trim();
+
+  let lastEntries = [];
+
+  function processar() {
+    const marcaSelecionada = getMarcaSelecionada(); // ✅ agora sempre existe aqui
+    const mao = Number(inMao?.value || 0);
+    const frete = Number(inFrete?.value || 0);
+    const perc = Number(inPerc?.value || 0);
+
+    const lines = String(ta.value || "")
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    const entries = [];
+    const erros = [];
+
+    for (const line of lines) {
+      const p = parseLinhaTabela(line);
+      if (p.error) { erros.push(`${line} → ${p.error}`); continue; }
+
+      for (const modelo of p.modelos) {
+        const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
+        entries.push({
+          marca: marcaSelecionada,
+          modelo,
+          servico: p.servico,
+          precoBase: p.precoBase,
+          precoFinal
+        });
+      }
+    }
+
+    lastEntries = consolidarMaiorPreco(entries);
+    setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
+    renderPreviewTabela(lastEntries);
+
+    if (erros.length) console.warn("[TABELA] Erros:", erros);
+  }
+
+  btnPrev.addEventListener("click", () => {
+    try { processar(); } catch (e) { console.error(e); setTabelaStatus("Erro ao pré-visualizar.", true); }
+  });
+
+  btnAplicar.addEventListener("click", async () => {
+    try {
+      processar();
+      if (!lastEntries.length) return setTabelaStatus("Nada para aplicar.", true);
+
+      const marcaSelecionada = getMarcaSelecionada(); // ✅ pega de novo aqui
+
+      setTabelaStatus("Aplicando no Firebase...");
+      const r = await upsertTabelaPrecos(lastEntries, { marcaPadrao: marcaSelecionada, collectionName: CATALOGO_COLLECTION });
+
+      setTabelaStatus(`Aplicado ✅ Modelos: ${r.modelsUpdated || 0} | Serviços: ${r.servicesUpdated || 0}`);
+      await window.__reloadCatalogo?.();
+    } catch (e) {
+      console.error(e);
+      setTabelaStatus("Falha ao aplicar no Firebase. Veja o console (F12).", true);
+    }
+  });
+}
 // ===========================  INIT  ===========================
 (async function init() {
   handlePagamentoChange();
@@ -683,6 +960,7 @@ document.addEventListener("keydown", (e) => {
     catalogo = await getCatalogoOnce();
     console.log("CATALOGO carregado:", catalogo.length, "| coleção:", CATALOGO_COLLECTION);
     buildBrandTabs();
+    bindTabelaFerramenta();
     renderCatalogo();
   };
 
@@ -705,6 +983,7 @@ document.addEventListener("keydown", (e) => {
       relatorios = items.map(normalizeRelatorio);
       relatorios.sort((a, b) => new Date(b.dataISO) - new Date(a.dataISO));
       renderRelatorios();
+      atualizarDashboardAdmin
     },
     (err) => console.error(err)
   );

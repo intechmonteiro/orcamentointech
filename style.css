@@ -682,3 +682,27 @@ a:hover{ text-decoration:underline; }
   .ms-price{ justify-self:flex-start; }
   .ms-add{ width:100%; }
 }
+.dash-card span{
+  display:inline-block;
+  font-size:1.6rem;
+  font-weight:950;
+  color:var(--primary);
+}
+
+/* Cole no FINAL do style.css (opcional — melhora o visual, sem inline) */
+#tabela-raw{
+  width:100%;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+  outline:none;
+}
+
+#tabela-raw:focus{
+  border-color:rgba(0,74,173,.45);
+  box-shadow:0 10px 22px rgba(0,74,173,.12);
+}
+
+#tabela-preview-box{
+  background:#fff;
+}

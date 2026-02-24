@@ -34,7 +34,7 @@
   </div>
 
   <div id="container-admin-carrinho">
-    <!-- Admin (sidebar direita) -->
+    <!----------------------- Admin (sidebar direita) --------------------------->
     <section id="painel-admin" class="painel-admin hidden">
       <div style="margin-top:18px; padding:14px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px;">
   <h3 style="margin:0 0 10px; font-size:1rem;">📥 Importar Catálogo (CSV → Firestore)</h3>
@@ -62,11 +62,90 @@
       </div>
 
       <div id="dashboard-admin" class="dashboard">
-        <div class="dash-card">
-          <h3>📄 Orçamentos</h3>
-          <span id="dash-qtd">0</span>
-        </div>
-      </div>
+  <div class="dash-card">
+    <h3>📄 Orçamentos</h3>
+    <span id="dash-qtd">0</span>
+  </div>
+
+  <div class="dash-card">
+    <h3>💰 Total</h3>
+    <span id="dash-total">R$ 0,00</span>
+  </div>
+
+  <div class="dash-card">
+    <h3>🟢 PIX</h3>
+    <span id="dash-pix">R$ 0,00</span>
+  </div>
+
+  <div class="dash-card">
+    <h3>🔵 Débito</h3>
+    <span id="dash-debito">R$ 0,00</span>
+  </div>
+
+  <div class="dash-card">
+    <h3>🟣 Crédito</h3>
+    <span id="dash-credito">R$ 0,00</span>
+  </div>
+
+  <div class="dash-card">
+    <h3>📈 Ticket Médio</h3>
+    <span id="dash-ticket">R$ 0,00</span>
+  </div>
+</div>
+
+<div class="dash-card" style="text-align:left;">
+  <h3>🧮 Atualizar Tabela (colar lista + aplicar custos)</h3>
+
+  <label style="display:block; font-weight:900; margin:10px 0 6px;">Cole aqui a lista:</label>
+  <textarea id="tabela-raw" rows="10" style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:12px; outline:none;"></textarea>
+
+  <div style="display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px;">
+    <div>
+      <label style="display:block; font-weight:900; margin-bottom:6px;">Mão de obra (R$)</label>
+      <input id="tabela-mao" type="number" step="0.01" value="0"
+        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
+    </div>
+    <div>
+      <label style="display:block; font-weight:900; margin-bottom:6px;">Frete (R$)</label>
+      <input id="tabela-frete" type="number" step="0.01" value="0"
+        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
+    </div>
+    <div>
+      <label style="display:block; font-weight:900; margin-bottom:6px;">Porcentagem (%)</label>
+      <input id="tabela-perc" type="number" step="0.01" value="0"
+        style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
+    </div>
+  </div>
+
+  <div style="margin-top:10px;">
+  <label style="display:block; font-weight:900; margin-bottom:6px;">Marca</label>
+  <select id="tabela-marca"
+    style="width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; outline:none;">
+    <option value="Samsung" selected>Samsung</option>
+    <option value="Motorola">Motorola</option>
+    <option value="Xiaomi">Xiaomi</option>
+    <option value="Apple">Apple (iPhone)</option>
+    <option value="LG">LG</option>
+    <option value="Infinix">Infinix</option>
+    <option value="Outros">Outros</option>
+  </select>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+    <button type="button" id="tabela-preview" class="btn-secondary-pdf">Pré-visualizar</button>
+    <button type="button" id="tabela-aplicar" class="btn-primary-wa">Aplicar no Firebase</button>
+  </div>
+
+  <div id="tabela-status" style="margin-top:10px; font-weight:800; opacity:.85;"></div>
+
+  <div id="tabela-preview-box"
+       style="margin-top:10px; overflow:auto; max-height:260px; border:1px solid rgba(0,0,0,.06); border-radius:12px; padding:10px; background:#fff;">
+  </div>
+
+  <p style="margin:10px 0 0; font-size:.85rem; opacity:.75;">
+    Fórmula: <b>(preço_base + mão_de_obra + frete) × (1 + %/100)</b>
+  </p>
+</div>
 
       <h2>Relatórios de Orçamentos</h2>
       <div id="relatorio-lista"></div>
@@ -107,7 +186,7 @@
     </div>
   </div>
 
-  <!-- Modal Orçamento -->
+  <!-------------------------------- Modal Orçamento --------------------------->
   <div
     id="modal-orcamento"
     class="modal hidden"
@@ -149,7 +228,7 @@
     </div>
   </div>
 
-  <!-- Modal Login Admin (NÃO deve ficar dentro do footer) -->
+  <!--------------------- Modal Login Admin ------------------ -->
   <div
     id="modal-admin-login"
     class="modal hidden"
