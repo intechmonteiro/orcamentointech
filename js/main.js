@@ -510,8 +510,8 @@ function sendToWhatsApp(meta) {
 }
 
 
-
 // =========================== Admin  ===========================//
+
 
 function isAdminAuthed() { return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1"; }
 function setAdminAuthed(v) { sessionStorage.setItem(ADMIN_SESSION_KEY, v ? "1" : "0"); }
@@ -530,7 +530,9 @@ function openAdminPanel() {
 }
 function closeAdminPanel() { closePanel(ui.painelAdmin); }
 
+
 // =========================== Relatórios (Admin) ===========================//
+
 
 function parseAnyDate(r) {
   const raw = r.dataISO ?? r.createdAt ?? r.data ?? r.created_at ?? null;
@@ -666,7 +668,9 @@ function exportRelatorioCSV() {
   URL.revokeObjectURL(url);
 }
 
+
 // =========================== Importação CSV (Admin)  ===========================//
+
 
 function setImportStatus(msg, isError = false) {
   const box = document.getElementById("import-status");
@@ -734,7 +738,9 @@ function bindImportUI() {
   });
 }
 
-// =========================== Eventos gerais ===========================
+
+// =========================== Eventos gerais ===========================//
+
 
 ui.cartToggle?.addEventListener("click", () => {
   closeAdminPanel();
@@ -822,7 +828,25 @@ function normalizeSpaces(s) {
     .trim();
 }
 
+
 //=============================== ROBO AUTOMATIZAÇÃO DE PREÇO ==========================//
+
+const MAPA_MARCAS = {
+    "MI": "Xiaomi",
+    "REDMI": "Xiaomi",
+    "POCO": "Pocophone",
+    "POCOPHONE": "Pocophone",
+    "MOTO": "Motorola",
+    "EDGE": "Motorola",
+    "IPHONE": "Apple",
+    "IP": "Apple",
+    "GALAXY": "Samsung",
+    "SAMSUNG": "Samsung",
+    "INFINIX": "Infinix",
+    "REALME": "Realme",
+    "HOT": "Infinix", 
+    "SMART": "Infinix"
+};
 
 function parseLinhaTabela(line) {
   const raw = normalizeSpaces(line);
@@ -916,24 +940,20 @@ function detectarMarcaPeloModelo(modeloBruto) {
     if (!modeloBruto) return "Outros";
     const m = modeloBruto.toUpperCase().trim();
 
-    // Regras de identificação baseadas no seu catálogo
-    if (m.includes("IPHONE") || m.includes("IPAD") || m.includes("WATCH") || m.startsWith("IP ")) return "Apple";
-    
-    // Motorola
-    if (m.includes("MOTO") || m.includes("EDGE") || m.includes("ONE ACTION") || m.includes("ONE VISION")) return "Motorola";
-    
-    // Samsung (A01, S23, Note, etc.)
-    if (/^[AMJS]\d{2}/.test(m) || /^S\d{2}/.test(m) || m.includes("SAMSUNG") || m.includes("GALAXY")) return "Samsung";
-    
-    // Xiaomi / Redmi / Poco
-    if (m.includes("REDMI") || m.startsWith("MI ") || m.includes("XIAOMI")) return "Xiaomi";
-    if (m.includes("POCO")) return "Pocophone";
-     if (/^K\d{1,3}/.test(m) || m.startsWith("LG")) return "LG";
-     
-    // Outras Marcas
-    if (m.includes("INFINIX")) return "Infinix";
+    // Primeiro: Tenta o dicionário de marcas
+    for (const [chave, marcaDestino] of Object.entries(MAPA_MARCAS)) {
+        if (m.includes(chave)) return marcaDestino;
+    }
 
-    if (m.includes("ZENFONE")) return "Asus";
+    // Segundo: Regras de Iniciais (Samsung A, S, M, J / LG K)
+    if (/^[AMJS]\d{1,3}/.test(m)) return "Samsung";
+    if (/^K\d{1,3}/.test(m) || m.startsWith("LG")) return "LG";
+
+    // Terceiro: Se for uma linha de título com emoji (📱MARCA📱)
+    if (m.includes("📱")) {
+        const nomeLimpo = m.replace(/📱/g, "").trim();
+        return nomeLimpo.charAt(0).toUpperCase() + nomeLimpo.slice(1).toLowerCase();
+    }
 
     return "Outros"; 
 }
@@ -1051,28 +1071,51 @@ function bindTabelaFerramenta() {
         const entries = [];
         const erros = [];
 
-        for (const line of lines) {
-            const p = parseLinhaTabela(line);
-            if (p.error) { 
-                erros.push(`${line} → ${p.error}`); 
-                continue; 
-            }
+       // Crie uma variável fora do loop para "lembrar" a marca atual
+let marcaAtualDoBloco = "Outros"; 
 
-            for (const modelo of p.modelos) {
-                // Inteligência: Detecta marca e limpa nomes (JK -> INCELL)
-                let marcaFinal = detectarMarcaPeloModelo(modelo);
-                const servicoLimpo = limparNomeServico(p.servico);
-                const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
-                
-                entries.push({
-                    marca: marcaFinal,
-                    modelo: modelo.toUpperCase().trim(),
-                    servico: servicoLimpo,
-                    precoBase: p.precoBase,
-                    precoFinal
-                });
-            }
+for (const line of lines) {
+    // 1. Detectar Título de Marca (Ex: 📱INFINIX 📱)
+    // Se a linha tiver emoji ou o nome de uma marca conhecida sozinha
+    if (line.includes("📱") || line.includes("---")) {
+        const detectada = detectarMarcaPeloModelo(line);
+        if (detectada !== "Outros") {
+            marcaAtualDoBloco = detectada;
         }
+        continue; // Pula para a próxima linha (não tenta processar preço aqui)
+    }
+
+    const p = parseLinhaTabela(line);
+    
+    // Se der erro, pode ser que a linha seja só o nome da marca sem emoji
+    if (p.error) {
+        const detectada = detectarMarcaPeloModelo(line);
+        if (detectada !== "Outros") {
+            marcaAtualDoBloco = detectada;
+        }
+        continue; 
+    }
+
+    for (const modelo of p.modelos) {
+        // 2. Inteligência: Tenta detectar no modelo, se não achar, usa a do bloco
+        let marcaFinal = detectarMarcaPeloModelo(modelo);
+        
+        if (marcaFinal === "Outros") {
+            marcaFinal = marcaAtualDoBloco;
+        }
+
+        const servicoLimpo = limparNomeServico(p.servico);
+        const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
+        
+        entries.push({
+            marca: marcaFinal,
+            modelo: modelo.toUpperCase().trim(),
+            servico: servicoLimpo,
+            precoBase: p.precoBase,
+            precoFinal
+        });
+    }
+}
 
         lastEntries = consolidarMaiorPreco(entries);
         setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
