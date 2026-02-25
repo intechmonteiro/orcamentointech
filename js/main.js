@@ -923,15 +923,16 @@ function detectarMarcaPeloModelo(modeloBruto) {
     if (m.includes("MOTO") || m.includes("EDGE") || m.includes("ONE ACTION") || m.includes("ONE VISION")) return "Motorola";
     
     // Samsung (A01, S23, Note, etc.)
-    if (/^A\d{2}/.test(m) || /^S\d{2}/.test(m) || m.includes("SAMSUNG") || m.includes("GALAXY") || m.includes("NOTE")) return "Samsung";
+    if (/^[AMJS]\d{2}/.test(m) || /^S\d{2}/.test(m) || m.includes("SAMSUNG") || m.includes("GALAXY")) return "Samsung";
     
     // Xiaomi / Redmi / Poco
     if (m.includes("REDMI") || m.startsWith("MI ") || m.includes("XIAOMI")) return "Xiaomi";
     if (m.includes("POCO")) return "Pocophone";
-    
+     if (/^K\d{1,3}/.test(m) || m.startsWith("LG")) return "LG";
+     
     // Outras Marcas
     if (m.includes("INFINIX")) return "Infinix";
-    if (m.startsWith("LG") || m.includes(" K10") || m.includes(" K40") || m.includes(" K50")) return "LG";
+
     if (m.includes("ZENFONE")) return "Asus";
 
     return "Outros"; 
