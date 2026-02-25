@@ -936,6 +936,27 @@ function limparNomeServico(textoOriginal) {
     return nome;
 }
 
+function limparNomeModelo(texto) {
+    if (!texto) return "";
+    let nome = texto.toUpperCase();
+
+    // Remove termos técnicos que não devem aparecer no nome do modelo
+    const remover = [
+        "JK", "TROCA CI", "SEM MENSAGEM", "DIAMONDS", 
+        "C/ARO", "S/ARO", "COM ARO", "SEM ARO"
+    ];
+
+    remover.forEach(termo => {
+        nome = nome.split(termo).join("");
+    });
+
+    // Corrige o MAXX para MAX
+    nome = nome.replace(/MAXX/g, "MAX");
+
+    // Limpa espaços duplos
+    return nome.replace(/\s+/g, " ").trim();
+}
+
 function detectarMarcaPeloModelo(modeloBruto) {
     if (!modeloBruto) return "Outros";
     const m = modeloBruto.toUpperCase().trim();
@@ -1095,6 +1116,17 @@ for (const line of lines) {
         }
         continue; 
     }
+    for (const modeloBruto of p.modelos) {
+    const marcaDetectada = detectarMarcaPeloModelo(modeloBruto);
+    const modeloLimpo = limparNomeModelo(modeloBruto); // <--- A MÁGICA ACONTECE AQUI
+
+    entries.push({
+        marca: marcaDetectada,
+        modelo: modeloLimpo, // Salva o nome bonitinho
+        servico: p.servico,
+        precoFinal: calcularFinal(p.precoBase, mao, frete, perc)
+    });
+}
 
     for (const modelo of p.modelos) {
         // 2. Inteligência: Tenta detectar no modelo, se não achar, usa a do bloco
