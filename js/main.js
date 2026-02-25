@@ -1069,6 +1069,13 @@ function bindTabelaFerramenta() {
     const inPerc = document.getElementById("tabela-perc");
     const btnPrev = document.getElementById("tabela-preview");
     const btnAplicar = document.getElementById("tabela-aplicar");
+    const CONFIG_MARCAS = {
+    "APPLE": { nome: "Apple", prefixo: "iPhone" },
+    "SAMSUNG": { nome: "Samsung", prefixo: "" },
+    "MOTOROLA": { nome: "Motorola", prefixo: "" },
+    "LG": { nome: "LG", prefixo: "" },
+    "INFINIX": { nome: "Infinix", prefixo: "" }
+};
 
     // 2. SEGURANÇA - Se os botões não existirem, paramos aqui para evitar o erro de "not defined"
     if (!btnPrev || !btnAplicar || !ta) {
@@ -1079,83 +1086,72 @@ function bindTabelaFerramenta() {
     let lastEntries = [];
 
     // 3. PROCESSAMENTO - A lógica que limpa os nomes e detecta marcas
-    function processar() {
-        const mao = Number(inMao?.value || 0);
-        const frete = Number(inFrete?.value || 0);
-        const perc = Number(inPerc?.value || 0);
+function processar() {
+    const mao = Number(inMao?.value || 0);
+    const frete = Number(inFrete?.value || 0);
+    const perc = Number(inPerc?.value || 0);
 
-        const lines = String(ta.value || "")
-            .split(/\r?\n/)
-            .map(l => l.trim())
-            .filter(Boolean);
+    const lines = String(ta.value || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const entries = [];
+    const erros = [];
 
-        const entries = [];
-        const erros = [];
+    // Variável para lembrar a marca do título atual (Ex: Apple)
+    let marcaAtualDoBloco = "Outros"; 
 
-       // Crie uma variável fora do loop para "lembrar" a marca atual
-let marcaAtualDoBloco = "Outros"; 
-
-for (const line of lines) {
-    // 1. Detectar Título de Marca (Ex: 📱INFINIX 📱)
-    // Se a linha tiver emoji ou o nome de uma marca conhecida sozinha
-    if (line.includes("📱") || line.includes("---")) {
-        const detectada = detectarMarcaPeloModelo(line);
-        if (detectada !== "Outros") {
-            marcaAtualDoBloco = detectada;
+    for (const line of lines) {
+        // 1. Detectar Títulos de Marca (Ex: 📱 APPLE 📱 ou 📱 REALME 📱)
+        if (line.includes("📱") || line.includes("---")) {
+            const detectada = detectarMarcaPeloModelo(line);
+            if (detectada !== "Outros") {
+                marcaAtualDoBloco = detectada;
+            }
+            continue; 
         }
-        continue; // Pula para a próxima linha (não tenta processar preço aqui)
-    }
 
-    const p = parseLinhaTabela(line);
-    
-    // Se der erro, pode ser que a linha seja só o nome da marca sem emoji
-    if (p.error) {
-        const detectada = detectarMarcaPeloModelo(line);
-        if (detectada !== "Outros") {
-            marcaAtualDoBloco = detectada;
-        }
-        continue; 
-    }
-    for (const modeloBruto of p.modelos) {
-    const marcaDetectada = detectarMarcaPeloModelo(modeloBruto);
-    const modeloLimpo = limparNomeModelo(modeloBruto); // <--- A MÁGICA ACONTECE AQUI
-
-    entries.push({
-        marca: marcaDetectada,
-        modelo: modeloLimpo, // Salva o nome bonitinho
-        servico: p.servico,
-        precoFinal: calcularFinal(p.precoBase, mao, frete, perc)
-    });
-}
-
-    for (const modelo of p.modelos) {
-        // 2. Inteligência: Tenta detectar no modelo, se não achar, usa a do bloco
-        let marcaFinal = detectarMarcaPeloModelo(modelo);
+        const p = parseLinhaTabela(line);
         
-        if (marcaFinal === "Outros") {
-            marcaFinal = marcaAtualDoBloco;
+        // Se a linha for apenas o nome da marca sem emoji, atualiza o bloco
+        if (p.error) {
+            const detectada = detectarMarcaPeloModelo(line);
+            if (detectada !== "Outros") marcaAtualDoBloco = detectada;
+            continue; 
         }
 
-        const servicoLimpo = limparNomeServico(p.servico);
-        const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
-        
-        entries.push({
-            marca: marcaFinal,
-            modelo: modelo.toUpperCase().trim(),
-            servico: servicoLimpo,
-            precoBase: p.precoBase,
-            precoFinal
-        });
+        // 2. Processar cada modelo encontrado na linha
+        for (const modeloBruto of p.modelos) {
+            // Inteligência de Marca: Prioriza a detecção automática
+            let marcaFinal = detectarMarcaPeloModelo(modeloBruto);
+            if (marcaFinal === "Outros") {
+                marcaFinal = marcaAtualDoBloco;
+            }
+
+            // Limpeza e Padronização (JK, OLED, VIVID e Prefixo iPhone)
+            let modeloLimpo = limparNomeModelo(modeloBruto); 
+            
+            // Adiciona "iPhone" automaticamente se for Apple e não tiver o nome
+            if (marcaFinal === "Apple" && !modeloLimpo.includes("IPHONE")) {
+                modeloLimpo = "IPHONE " + modeloLimpo;
+            }
+
+            const servicoLimpo = limparNomeServico(p.servico);
+            const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
+            
+            entries.push({
+                marca: marcaFinal,
+                modelo: modeloLimpo, 
+                servico: servicoLimpo,
+                precoBase: p.precoBase,
+                precoFinal: precoFinal
+            });
+        }
     }
+
+    lastEntries = consolidarMaiorPreco(entries);
+    setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
+    renderPreviewTabela(lastEntries);
+
+    if (erros.length > 0) console.warn("[TABELA] Erros:", erros);
 }
-
-        lastEntries = consolidarMaiorPreco(entries);
-        setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
-        renderPreviewTabela(lastEntries);
-
-        if (erros.length > 0) console.warn("[TABELA] Erros:", erros);
-    }
-
     // 4. EVENTOS - Adicionamos os cliques usando as variáveis já conferidas
     btnPrev.onclick = () => {
         try { 
