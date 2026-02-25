@@ -93,18 +93,7 @@
           </div>
         </div>
 
-        <div class="brand-select-row">
-          <label>Marca</label>
-          <select id="tabela-marca" class="input-standard">
-            <option value="Samsung" selected>Samsung</option>
-            <option value="Motorola">Motorola</option>
-            <option value="Xiaomi">Xiaomi</option>
-            <option value="Apple">Apple (iPhone)</option>
-            <option value="LG">LG</option>
-            <option value="Infinix">Infinix</option>
-            <option value="Outros">Outros</option>
-          </select>
-        </div>
+
 
         <div class="admin-actions-row">
           <button type="button" id="tabela-preview" class="btn-secondary-pdf">Pré-visualizar</button>
@@ -143,6 +132,12 @@
       </section>
     </main>
   </div>
+  
+  <main class="container">
+    <div id="lista-servicos">
+        <div id="servicos-grid"></div> 
+    </div>
+</main>
 
   <div id="modal-orcamento" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content modal-central">
@@ -175,32 +170,45 @@
     </div>
   </div>
 
-  <div id="modal-admin-login" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-content modal-central">
-      <div class="modal-header">
-        <h3>Acesso Admin</h3>
-        <button type="button" id="modal-admin-fechar" class="close-btn">✕</button>
-      </div>
-      <div class="modal-body">
-        <label for="admin-pass">Senha:</label>
-        <input type="password" id="admin-pass" placeholder="Digite a senha..." autocomplete="current-password" />
-        <p id="admin-err" class="error-msg">Senha inválida.</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="btn-admin-entrar" class="btn-secondary-pdf">Entrar</button>
-      </div>
+<div id="modal-admin-login" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-content modal-central">
+    <div class="modal-header">
+      <h3>Acesso Restrito</h3>
+      <button type="button" id="modal-admin-fechar" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <label for="admin-user">Usuário:</label>
+      <input type="text" id="admin-user" placeholder="Seu usuário..." class="input-standard">
+      
+      <label for="admin-pass">Senha:</label>
+      <input type="password" id="admin-pass" placeholder="Sua senha..." class="input-standard">
+      
+      <p id="admin-err" class="error-msg">Credenciais inválidas.</p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="btn-admin-entrar" class="btn-secondary-pdf">Acessar Dashboard</button>
     </div>
   </div>
+</div>
 
-  <footer class="rodape-intech">
-    <h3>Monteiro Intech</h3>
-    <p>Confiança que se instala com um clique.</p>
-    <div class="social-links">
-      <a href="https://wa.me/5555997005039" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-      <a href="https://www.instagram.com/intech.monteiro/" target="_blank" rel="noopener noreferrer">Instagram</a>
-      <a href="https://www.facebook.com/intech.monteiro?locale=pt_BR" target="_blank" rel="noopener noreferrer">Facebook</a>
+<footer class="rodape-intech">
+    <div class="rodape-content">
+        <div class="rodape-brand">
+            <h2>Monteiro Intech</h2>
+            <p>Confiança que se instala com um clique.</p>
+        </div>
+        
+        <div class="rodape-links">
+            <a href="https://wa.me/5555997005039?text=Olá!%20vim%20do%20site%20e%20quero%20ajuda%20com" target="_blank" class="wpp-footer-btn">
+        <i class="fab fa-whatsapp"></i> WhatsApp
+            <a href="https://www.instagram.com/intech.monteiro" target="_blank">Instagram</a>
+            <a href="https://www.facebook.com/intech.monteiro?locale=pt_BR" target="_blank">Facebook</a>
+        </div>
+
+        <div class="rodape-bottom">
+            &copy; 2025 <b>Monteiro Intech</b> — Todos os direitos reservados.
+        </div>
     </div>
-    <p class="creditos">© 2025 Monteiro Intech — Todos os direitos reservados.</p>
-  </footer>
+</footer>
 </body>
 </html>

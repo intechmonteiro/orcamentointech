@@ -99,9 +99,12 @@ function isOpen(node) { return node && !node.classList.contains("hidden"); }
 // =========================== DASHBOARD ADMIN ===========================//
 
 function atualizarDashboardAdmin() {
-  const qtd = relatorios.length;
-  let total = 0; pix = 0; debito = 0; credito = 0;
+  if (!relatorios) return;
 
+  const qtd = relatorios.length;
+  let total = 0, pix = 0, debito = 0, credito = 0;
+
+  // 1. Processamento dos dados
   for (const r of relatorios) {
     const v = Number(r.total || 0);
     total += v;
@@ -114,21 +117,27 @@ function atualizarDashboardAdmin() {
 
   const ticket = qtd > 0 ? total / qtd : 0;
 
-// Atualiza os elementos do dashboard se existirem 
+  // 2. Atualização da Interface (DOM)
+  // Usamos o atalho el() para manter o padrão do seu projeto
+  const mapeamento = {
+    "dash-qtd": String(qtd),
+    "dash-total": formatBRL(total),
+    "dash-pix": formatBRL(pix),
+    "dash-debito": formatBRL(debito),
+    "dash-credito": formatBRL(credito),
+    "dash-ticket": formatBRL(ticket)
+  };
 
-  const elQtd = document.getElementById("dash-qtd");
-  const elTotal = document.getElementById("dash-total");
-  const elPix = document.getElementById("dash-pix");
-  const elDeb = document.getElementById("dash-debito");
-  const elCred = document.getElementById("dash-credito");
-  const elTicket = document.getElementById("dash-ticket");
+  // Itera sobre o mapeamento e atualiza apenas os campos que existirem na tela
+  Object.entries(mapeamento).forEach(([id, valor]) => {
+    const elemento = document.getElementById(id);
+    if (elemento) {
+      elemento.textContent = valor;
+    }
+  });
 
-if (ui.dashQtd) ui.dashQtd.textContent = String(qtd);
-  if (el("dash-total")) el("dash-total").textContent = formatBRL(total);
-  if (el("dash-pix")) el("dash-pix").textContent = formatBRL(pix);
-  if (el("dash-debito")) el("dash-debito").textContent = formatBRL(debito);
-  if (el("dash-credito")) el("dash-credito").textContent = formatBRL(credito);
-  if (el("dash-ticket")) el("dash-ticket").textContent = formatBRL(ticket);
+  // Log para controle na bancada da Rua Paulo Gelson Padilha, 58
+  console.log(`[ADMIN] Dashboard atualizado: ${qtd} orçamentos.`);
 }
 
 // ===========================  CARRINHO (LÓGICA E UI) ===========================//
@@ -327,90 +336,129 @@ function buildBrandTabs() {
 }
 
 function renderCatalogo() {
-  // 1. Encontra o lugar onde os serviços devem aparecer
   let grid = document.getElementById("servicos-grid");
   
-  // Se o grid ainda não existir no HTML, nós o criamos agora
+  // Garante que o grid existe
   if (!grid) {
     grid = document.createElement("div");
     grid.id = "servicos-grid";
-    // O estilo agora vem do style.css, mas garantimos a estrutura aqui
-    const container = ui.listaServicos.closest(".container") || ui.listaServicos;
-    container.appendChild(grid);
+    if(ui.listaServicos) ui.listaServicos.appendChild(grid);
+    else return;
   }
+
+  grid.innerHTML = ""; 
 
   const q = (searchText || "").trim().toLowerCase();
+  
+  // 1. Filtros
+  let list = (activeBrand === "Todos") 
+    ? catalogo 
+    : catalogo.filter(s => (s.marca || "").trim() === activeBrand);
 
-  // 2. Filtra a lista baseada na aba selecionada (activeBrand)
-  let list = [...catalogo];
-  if (activeBrand !== "Todos") {
-    list = list.filter((s) => (s.marca || "").trim() === activeBrand);
-  }
-
-  // 3. Filtra pela busca (q)
   if (q) {
-    list = list.filter((s) => 
+    list = list.filter(s => 
       `${s.marca} ${s.modelo} ${s.nome}`.toLowerCase().includes(q)
     );
   }
 
-  // 4. Agrupa por Marca + Modelo para criar os cards
+  // 2. Agrupamento
   const groups = new Map();
-  for (const s of list) {
-    const marca = (s.marca || "").trim();
-    const modelo = (s.modelo || "").trim();
-    const key = `${marca}|||${modelo}`.toLowerCase();
-
+  list.forEach(s => {
+    const familia = obterFamiliaModelo(s.modelo); // Ex: "IPHONE 11"
+    const key = `${s.marca}|||${familia}`.toUpperCase();
+    
     if (!groups.has(key)) {
-      groups.set(key, { marca, modelo, items: [] });
+      groups.set(key, { 
+        marca: s.marca, 
+        modeloDisplay: familia, 
+        items: [] 
+      });
     }
     groups.get(key).items.push(s);
-  }
+  });
 
-  // 5. Se não houver nada, mostra um aviso
   if (groups.size === 0) {
-    grid.innerHTML = `<div style="text-align:center; padding:20px; opacity:0.7; grid-column: 1 / -1;">Nenhum serviço ou modelo encontrado para "${searchText}".</div>`;
+    grid.innerHTML = `<p style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--muted);">Nenhum modelo encontrado.</p>`;
     return;
   }
 
-  // 6. Desenha os Cards de Modelo
-  grid.innerHTML = Array.from(groups.values())
-    .sort((a, b) => a.modelo.localeCompare(b.modelo)) // Ordena modelos de A-Z
-    .map((g) => {
-      // Ordena os serviços dentro do modelo (ex: Tela, Bateria...)
-      g.items.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+  // 3. Renderização
+  const html = Array.from(groups.values())
+    .sort((a, b) => a.modeloDisplay.localeCompare(b.modeloDisplay))
+    .map(g => {
+      
+      // LÓGICA DA "LINHA":
+      // Cria um Set com os nomes dos modelos originais. 
+      // Se tiver mais de 1 nome diferente (ex: "11" e "11 Pro"), o tamanho será > 1.
+      const modelosUnicos = new Set(g.items.map(i => i.modelo.trim().toUpperCase()));
+      const ehLinha = modelosUnicos.size > 1;
 
-      const rows = g.items.map((s) => `
+      // Ordena itens dentro do card
+      g.items.sort((a, b) => a.modelo.localeCompare(b.modelo));
+
+      const rows = g.items.map(item => `
         <div class="model-service-row">
-          <div class="ms-name">${s.nome}</div>
+          <div style="flex:1;">
+             ${ehLinha ? `<div style="font-size:0.75rem; color:#94a3b8; font-weight:700; margin-bottom:2px;">${item.modelo.toUpperCase()}</div>` : ''}
+             <span class="ms-name">${item.nome}</span>
+          </div>
+          
           <div style="display:flex; align-items:center; gap:10px;">
-            <div class="ms-price">${formatBRL(s.preco)}</div>
-            <button type="button" class="ms-add" data-add="${s.id}">Add</button>
+            <span class="ms-price">${formatBRL(item.preco)}</span>
+            <button type="button" class="ms-add" data-add="${item.id}">Add</button>
           </div>
         </div>
       `).join("");
 
+      // Monta o título do Card
+      let htmlTitulo = `${g.marca} ${g.modeloDisplay}`;
+      if (ehLinha) {
+          htmlTitulo += ` <span style="font-size:0.75rem; background:#e0f2fe; color:#0284c7; padding:2px 6px; border-radius:4px; margin-left:5px; font-weight:700; text-transform:uppercase;">LINHA</span>`;
+      }
+
       return `
         <div class="model-card">
-          <div class="model-card-header">
-            <div class="model-card-title">${g.marca} • ${g.modelo}</div>
+          <div class="model-card-header" onclick="this.parentElement.classList.toggle('active')">
+            <h4 class="model-card-title" style="display:flex; align-items:center;">
+                ${htmlTitulo}
+            </h4>
           </div>
           <div class="model-card-body">
             ${rows}
           </div>
         </div>
       `;
-    })
-    .join("");
+    }).join("");
 
-  // 7. Ativa os botões de "Adicionar"
-  grid.querySelectorAll("[data-add]").forEach((btn) => {
-    btn.onclick = () => {
+  grid.innerHTML = html;
+
+  // Reativa botões
+  grid.querySelectorAll(".ms-add").forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
       const id = btn.getAttribute("data-add");
-      const serv = catalogo.find((x) => String(x.id) === String(id));
+      const serv = catalogo.find(x => String(x.id) === String(id));
       if (serv) addToCart(serv);
     };
   });
+}
+
+function obterFamiliaModelo(modelo) {
+  if (!modelo) return "Outros";
+  let base = modelo.toUpperCase().trim();
+
+  // Remove variações comuns para agrupar
+  const sufixos = [
+    "PRO MAX", "PRO", "MAX", "MAXX", "PLUS", "ULTRA", 
+    "MINI", "LITE", "FE", "5G", "4G", "PRIME", "CORE", "NOTE", "S"
+  ];
+
+  sufixos.forEach(sufixo => {
+    const regex = new RegExp(`\\s+${sufixo}(\\s+|$)`, "gi");
+    base = base.replace(regex, "");
+  });
+
+  return base.trim();
 }
 
 // =========================== Modal orçamento ===========================//
@@ -687,6 +735,7 @@ function bindImportUI() {
 }
 
 // =========================== Eventos gerais ===========================
+
 ui.cartToggle?.addEventListener("click", () => {
   closeAdminPanel();
   if (isOpen(ui.cartSidebar)) closePanel(ui.cartSidebar);
@@ -727,10 +776,20 @@ try {
 ui.modalOrc?.addEventListener("click", (e) => { if (e.target === ui.modalOrc) closeModalOrcamento(); });
 ui.abrirAdmin?.addEventListener("click", () => { if (isAdminAuthed()) openAdminPanel(); else openAdminLogin(); });
 ui.modalAdminFechar?.addEventListener("click", closeAdminLogin);
+ui.adminUser = el("admin-user");
 ui.btnAdminEntrar?.addEventListener("click", () => {
+  const user = (ui.adminUser?.value || "").trim();
   const pass = (ui.adminPass?.value || "").trim();
-  if (pass === ADMIN_PASSWORD) { setAdminAuthed(true); closeAdminLogin(); openAdminPanel(); }
-  else { if (ui.adminErr) ui.adminErr.style.display = "block"; ui.adminPass?.focus(); }
+
+  // Defina aqui seu usuário e senha
+  if (user === "lucas" && pass === "132205") { 
+    sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
+    closePanel(ui.modalAdminLogin);
+    openPanel(ui.painelAdmin); // Abre a tela cheia configurada no CSS
+    atualizarDashboardAdmin(); // Garante que os números apareçam
+  } else {
+    if (ui.adminErr) ui.adminErr.style.display = "block";
+  }
 });
 ui.adminPass?.addEventListener("keydown", (e) => { if (e.key === "Enter") ui.btnAdminEntrar?.click(); });
 ui.modalAdminLogin?.addEventListener("click", (e) => { if (e.target === ui.modalAdminLogin) closeAdminLogin(); });
@@ -812,6 +871,70 @@ function parseLinhaTabela(line) {
   const servico = categoria.trim();
 
   return { modelos, servico, precoBase };
+}
+
+function limparNomeServico(textoOriginal) {
+    if (!textoOriginal) return "";
+
+    // 1. Converte tudo para maiúsculo para facilitar a busca
+    let nome = textoOriginal.toUpperCase();
+
+    // 2. Lógica da Linha JK -> Vira INCELL
+    // Se tiver "JK", a gente remove o "JK" e garante que tenha "INCELL"
+    if (nome.includes("JK")) {
+        nome = nome.replace(/JK/g, ""); // Remove o termo JK
+        if (!nome.includes("INCELL")) {
+            nome += " INCELL"; // Adiciona INCELL se já não tiver
+        }
+    }
+
+    // 3. Correção do MAXX -> MAX
+    nome = nome.replace(/MAXX/g, "MAX");
+
+    // 4. Lista de termos para ELIMINAR (Sumiu, tchau!)
+    const termosProibidos = [
+        "TROCA CI", 
+        "ARO", 
+        "SEM MENSAGEM",
+        "SEM MENSAGEM DE TELA", // Variação comum
+        "COM ARO"               // Caso queira remover variações de aro também
+    ];
+
+    termosProibidos.forEach(termo => {
+        // Substitui o termo por vazio
+        nome = nome.split(termo).join("");
+    });
+
+    // 5. Faxina Final: Remove espaços duplos que ficaram buracos
+    // Ex: "IPHONE  11   INCELL" vira "IPHONE 11 INCELL"
+    nome = nome.replace(/\s+/g, " ").trim();
+
+    return nome;
+}
+
+function detectarMarcaPeloModelo(modeloBruto) {
+    if (!modeloBruto) return "Outros";
+    const m = modeloBruto.toUpperCase().trim();
+
+    // Regras de identificação baseadas no seu catálogo
+    if (m.includes("IPHONE") || m.includes("IPAD") || m.includes("WATCH") || m.startsWith("IP ")) return "Apple";
+    
+    // Motorola
+    if (m.includes("MOTO") || m.includes("EDGE") || m.includes("ONE ACTION") || m.includes("ONE VISION")) return "Motorola";
+    
+    // Samsung (A01, S23, Note, etc.)
+    if (/^A\d{2}/.test(m) || /^S\d{2}/.test(m) || m.includes("SAMSUNG") || m.includes("GALAXY") || m.includes("NOTE")) return "Samsung";
+    
+    // Xiaomi / Redmi / Poco
+    if (m.includes("REDMI") || m.startsWith("MI ") || m.includes("XIAOMI")) return "Xiaomi";
+    if (m.includes("POCO")) return "Pocophone";
+    
+    // Outras Marcas
+    if (m.includes("INFINIX")) return "Infinix";
+    if (m.startsWith("LG") || m.includes(" K10") || m.includes(" K40") || m.includes(" K50")) return "LG";
+    if (m.includes("ZENFONE")) return "Asus";
+
+    return "Outros"; 
 }
 
 function consolidarMaiorPreco(entries) {
@@ -897,81 +1020,97 @@ function renderPreviewTabela(entries) {
 }
 
 function bindTabelaFerramenta() {
-  const ta = document.getElementById("tabela-raw");
-  const inMarca = document.getElementById("tabela-marca");
-  const inMao = document.getElementById("tabela-mao");
-  const inFrete = document.getElementById("tabela-frete");
-  const inPerc = document.getElementById("tabela-perc");
-  const btnPrev = document.getElementById("tabela-preview");
-  const btnAplicar = document.getElementById("tabela-aplicar");
+    // 1. CAPTURA - Buscamos os elementos no HTML
+    const ta = document.getElementById("tabela-raw");
+    const inMao = document.getElementById("tabela-mao");
+    const inFrete = document.getElementById("tabela-frete");
+    const inPerc = document.getElementById("tabela-perc");
+    const btnPrev = document.getElementById("tabela-preview");
+    const btnAplicar = document.getElementById("tabela-aplicar");
 
-  if (!ta || !btnPrev || !btnAplicar) return;
-
-  // ✅ FUNÇÃO que sempre pega a marca atual do select
-  const getMarcaSelecionada = () => String(inMarca?.value || "Samsung").trim();
-
-  let lastEntries = [];
-
-  function processar() {
-    const marcaSelecionada = getMarcaSelecionada(); // ✅ agora sempre existe aqui
-    const mao = Number(inMao?.value || 0);
-    const frete = Number(inFrete?.value || 0);
-    const perc = Number(inPerc?.value || 0);
-
-    const lines = String(ta.value || "")
-      .split(/\r?\n/)
-      .map(l => l.trim())
-      .filter(Boolean);
-
-    const entries = [];
-    const erros = [];
-
-    for (const line of lines) {
-      const p = parseLinhaTabela(line);
-      if (p.error) { erros.push(`${line} → ${p.error}`); continue; }
-
-      for (const modelo of p.modelos) {
-        const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
-        entries.push({
-          marca: marcaSelecionada,
-          modelo,
-          servico: p.servico,
-          precoBase: p.precoBase,
-          precoFinal
-        });
-      }
+    // 2. SEGURANÇA - Se os botões não existirem, paramos aqui para evitar o erro de "not defined"
+    if (!btnPrev || !btnAplicar || !ta) {
+        console.warn("Atenção: Botões da ferramenta de importação não encontrados no HTML.");
+        return;
     }
 
-    lastEntries = consolidarMaiorPreco(entries);
-    setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
-    renderPreviewTabela(lastEntries);
+    let lastEntries = [];
 
-    if (erros.length) console.warn("[TABELA] Erros:", erros);
-  }
+    // 3. PROCESSAMENTO - A lógica que limpa os nomes e detecta marcas
+    function processar() {
+        const mao = Number(inMao?.value || 0);
+        const frete = Number(inFrete?.value || 0);
+        const perc = Number(inPerc?.value || 0);
 
-  btnPrev.addEventListener("click", () => {
-    try { processar(); } catch (e) { console.error(e); setTabelaStatus("Erro ao pré-visualizar.", true); }
-  });
+        const lines = String(ta.value || "")
+            .split(/\r?\n/)
+            .map(l => l.trim())
+            .filter(Boolean);
 
-  btnAplicar.addEventListener("click", async () => {
-    try {
-      processar();
-      if (!lastEntries.length) return setTabelaStatus("Nada para aplicar.", true);
+        const entries = [];
+        const erros = [];
 
-      const marcaSelecionada = getMarcaSelecionada(); // ✅ pega de novo aqui
+        for (const line of lines) {
+            const p = parseLinhaTabela(line);
+            if (p.error) { 
+                erros.push(`${line} → ${p.error}`); 
+                continue; 
+            }
 
-      setTabelaStatus("Aplicando no Firebase...");
-      const r = await upsertTabelaPrecos(lastEntries, { marcaPadrao: marcaSelecionada, collectionName: CATALOGO_COLLECTION });
+            for (const modelo of p.modelos) {
+                // Inteligência: Detecta marca e limpa nomes (JK -> INCELL)
+                let marcaFinal = detectarMarcaPeloModelo(modelo);
+                const servicoLimpo = limparNomeServico(p.servico);
+                const precoFinal = calcularFinal(p.precoBase, mao, frete, perc);
+                
+                entries.push({
+                    marca: marcaFinal,
+                    modelo: modelo.toUpperCase().trim(),
+                    servico: servicoLimpo,
+                    precoBase: p.precoBase,
+                    precoFinal
+                });
+            }
+        }
 
-      setTabelaStatus(`Aplicado ✅ Modelos: ${r.modelsUpdated || 0} | Serviços: ${r.servicesUpdated || 0}`);
-      await window.__reloadCatalogo?.();
-    } catch (e) {
-      console.error(e);
-      setTabelaStatus("Falha ao aplicar no Firebase. Veja o console (F12).", true);
+        lastEntries = consolidarMaiorPreco(entries);
+        setTabelaStatus(`Linhas: ${lines.length} | Válidos: ${lastEntries.length} | Erros: ${erros.length}`, erros.length > 0);
+        renderPreviewTabela(lastEntries);
+
+        if (erros.length > 0) console.warn("[TABELA] Erros:", erros);
     }
-  });
+
+    // 4. EVENTOS - Adicionamos os cliques usando as variáveis já conferidas
+    btnPrev.onclick = () => {
+        try { 
+            processar(); 
+        } catch (e) { 
+            console.error("Erro no Preview:", e); 
+            setTabelaStatus("Erro ao processar dados.", true);
+        }
+    };
+
+    btnAplicar.onclick = async () => {
+        try {
+            processar();
+            if (!lastEntries.length) return setTabelaStatus("Nada para aplicar.", true);
+
+            setTabelaStatus("Aplicando no Firebase...");
+            const r = await upsertTabelaPrecos(lastEntries, { 
+                marcaPadrao: "Automático", 
+                collectionName: CATALOGO_COLLECTION 
+            });
+
+            setTabelaStatus(`Aplicado ✅ Modelos: ${r.modelsUpdated} | Serviços: ${r.servicesUpdated}`);
+            await window.__reloadCatalogo?.();
+        } catch (e) {
+            console.error("Erro ao Aplicar:", e);
+            setTabelaStatus("Falha ao salvar. Verifique a cota do Firebase.", true);
+        }
+    };
 }
 // ===========================  INIT  ===========================
+
 (async function init() {
   handlePagamentoChange();
   loadCart();

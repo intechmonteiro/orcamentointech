@@ -1,878 +1,571 @@
 /* =========================================================
-   MONTEIRO INTECH — ORÇAMENTOS (V.2026)
-   CSS LIMPO (SEM DUPLICAÇÕES)
-   Substitua TODO o seu style.css por este arquivo.
+   SISTEMA DE CORES E VARIÁVEIS
+   ========================================================= */
+:root {
+  --primary: #004aad;
+  --primary-dark: #003a8c;
+  --secondary: #25d366;
+  --bg: #f0f2f5;
+  --surface: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 10px 25px rgba(0,0,0,.08);
+  --shadow-strong: 0 20px 45px rgba(0,0,0,.18);
+  --radius: 16px;
+  --transition: all .25s ease;
+}
+
+/* ========================= GERAL ========================= */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+.hidden { display: none !important; }
+.container { width: min(1200px, 95%); margin: 0 auto; }
+
+/* ========================= TOPBAR ========================= */
+.topbar {
+  position: sticky; top: 0; z-index: 1000;
+  background: var(--primary); color: #fff;
+  padding: 14px 5%; display: flex;
+  align-items: center; justify-content: space-between;
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+.brand { font-size: 1.55rem; font-weight: 800; letter-spacing: -.8px; }
+.admin-btn, .cart-btn {
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35);
+  color: #fff; padding: 10px 16px; border-radius: 999px;
+  font-weight: 800; cursor: pointer; transition: var(--transition);
+  display: flex; align-items: center; gap: 8px;
+}
+.admin-btn:hover, .cart-btn:hover { background: #fff; color: var(--primary); }
+
+/* ========================= BUSCA E ABAS ========================= */
+.search-container { margin-top: 18px; display: flex; justify-content: center; }
+#app-search {
+  width: min(760px, 100%); padding: 14px 16px; border-radius: 999px;
+  border: 1px solid var(--border); outline: none; background: #fff;
+  box-shadow: var(--shadow); font-size: 1rem;
+}
+.brand-tabs { display: flex; gap: 10px; overflow-x: auto; padding: 12px 2px; scrollbar-width: none; }
+.brand-tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  border: 1px solid var(--border); background: #fff; color: #334155;
+  padding: 8px 14px; border-radius: 999px; font-weight: 800;
+  cursor: pointer; transition: all .2s ease; white-space: nowrap;
+}
+.tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ========================= GRADE DE MODELOS (GRID) ========================= */
+#servicos-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px; padding: 20px 0;
+}
+.model-card {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  transition: var(--transition); cursor: pointer; overflow: hidden;
+  display: block !important;
+}
+.model-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-strong); }
+.model-card-header {
+  padding: 20px; display: flex; justify-content: space-between;
+  align-items: center; background: #fff;
+}
+.model-card-title { font-size: 1rem; font-weight: 800; color: var(--primary); margin: 0; }
+.model-card-header::after { content: '▼'; font-size: 0.8rem; transition: transform 0.3s ease; opacity: 0.5; }
+.model-card.active .model-card-header::after { transform: rotate(180deg); }
+
+.model-card-body {
+  display: none; background: #f8fafc; padding: 15px; border-top: 1px solid #eee;
+}
+.model-card.active .model-card-body { display: block !important; }
+
+/* LINHA DO SERVIÇO INTERNA */
+.model-service-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: #fff; border: 1px solid #f0f0f0;
+  border-radius: 12px; margin-bottom: 8px;
+}
+.ms-name { font-size: 0.95rem; font-weight: 600; flex: 1; }
+.ms-price {
+  font-weight: 800; color: var(--primary); background: #eef2f7;
+  padding: 4px 10px; border-radius: 20px; margin-right: 10px;
+}
+.ms-add {
+  background: var(--primary); color: white; border: none;
+  padding: 8px 18px; border-radius: 8px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s ease;
+}
+
+/* ========================= CARRINHO SIDEBAR ========================= */
+.cart-sidebar {
+  position: fixed; top: 0; right: 0; height: 100vh;
+  width: 380px; max-width: 100%; background: #ffffff;
+  box-shadow: -18px 0 40px rgba(0,0,0,.14); z-index: 2000;
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .35s ease;
+  padding: 0 !important;
+}
+.cart-sidebar:not(.hidden) { transform: translateX(0); }
+
+.cart-header {
+  background: var(--primary); color: white;
+  padding: 20px; display: flex; justify-content: space-between; align-items: center;
+}
+.cart-header h3 { margin: 0; font-size: 1.2rem; font-weight: 800; }
+
+.cart-group-header {
+  background: #f8fafc; padding: 12px 20px; font-weight: 900;
+  color: var(--primary); border-bottom: 1px solid #edf2f7;
+  font-size: 0.95rem; text-transform: uppercase;
+}
+
+.cart-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 20px; border-bottom: 1px solid #f1f5f9;
+}
+.cart-item-name { font-weight: 700; color: #334155; font-size: 0.95rem; }
+.cart-item-price { font-weight: 800; color: var(--text); font-size: 1rem; margin-right: 10px; }
+
+.remove-item-btn {
+  background: #fee2e2; color: #ef4444; border: none;
+  width: 28px; height: 28px; border-radius: 8px; cursor: pointer;
+}
+
+.cart-footer { padding: 20px; background: #ffffff; border-top: 2px solid #f1f5f9; }
+.cart-total { font-size: 1.4rem; font-weight: 950; color: var(--primary); text-align: center; margin-bottom: 20px; display: block; }
+
+.action-buttons { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px; }
+
+/* ========================= BOTÕES TECH ========================= */
+.btn-primary-wa {
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: white; border: none; padding: 14px; border-radius: 14px;
+  font-weight: 800; text-transform: uppercase; cursor: pointer;
+}
+.btn-secondary-pdf {
+  background: #ffffff; color: var(--primary); border: 2px solid var(--primary);
+  padding: 14px; border-radius: 14px; font-weight: 800; text-transform: uppercase; cursor: pointer;
+}
+
+/* ========================= PAINEL ADMIN TELA CHEIA ========================= */
+
+
+.painel-admin {
+    position: fixed;
+    inset: 0;
+    background-color: #f1f5f9; /* Fundo cinza tech */
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    
+    /* CORREÇÃO DO SCROLL: */
+    overflow-y: auto; /* Permite rolar para baixo se o conteúdo for grande */
+    overflow-x: hidden; /* Evita rolagem lateral indesejada */
+    
+    animation: slideUp 0.4s ease-out;
+}
+/* Container mais organizado */
+.admin-container {
+    padding: 20px 4%;
+    max-width: 1200px; /* Reduzi a largura máxima para não espalhar demais */
+    margin: 0 auto;
+}
+/* Grid de Cards mais compacto */
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Cards menores */
+    gap: 15px;
+    margin-bottom: 30px;
+}
+.dash-card {
+    background: #ffffff;
+    padding: 15px 20px; /* Reduzi o padding interno */
+    border-radius: 10px;
+    border-left: 4px solid var(--primary); /* Barra lateral mais fina */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+/* Ajuste de Tipografia nos Cards */
+.dash-card h3 {
+    font-size: 0.75rem; /* Título menor e mais discreto */
+    color: #64748b;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+.dash-card span {
+    font-size: 1.4rem; /* Valor principal mais equilibrado */
+    font-weight: 800;
+    color: #1e293b;
+}
+/* Seção de Importação mais limpa */
+.import-section {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 30px;
+}
+.import-section h2 {
+    font-size: 1rem;
+    margin-bottom: 15px;
+}
+/* Botões de Importação menores */
+.admin-btn-action {
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.admin-header-bar {
+  background: #1e293b; color: #ffffff; padding: 15px 5%;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ========================= MODAIS SÓLIDOS ========================= */
+
+/* 1. O Fundo (Backdrop) */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 12000; /* Acima de tudo */
+    background: rgba(15, 23, 42, 0.9); /* Azul escuro quase preto, foco total */
+    backdrop-filter: blur(5px); /* Leve desfoque no fundo */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px; /* Garante margem em celulares */
+}
+
+/* 2. A Caixa do Modal (O Cartão Branco) */
+.modal-content {
+    background: #ffffff;
+    width: 100%;
+    max-width: 480px; /* Largura ideal para leitura */
+    border-radius: 20px;
+    padding: 40px; /* MUITO ESPAÇO interno */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Espaço entre título, corpo e rodapé */
+}
+
+@keyframes zoomIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* 3. Cabeçalho e Título */
+.modal-header {
+    text-align: center;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.modal-header h3 {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+/* Botão de Fechar (X) - Posicionado no canto superior direito */
+.modal-header .close-btn {
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.modal-header .close-btn:hover {
+    background: #ef4444;
+    color: white;
+    transform: rotate(90deg);
+}
+
+/* 4. Corpo do Formulário */
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Separa bem os inputs */
+}
+
+/* Etiquetas (Labels) */
+.modal-body label {
+    display: block; /* Força ficar em cima do input */
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #475569;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Inputs e Selects */
+.modal-body input,
+.modal-body select {
+    width: 100%;
+    background-color: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px; /* Altura confortável para digitar */
+    font-size: 1.1rem; /* Letra grande */
+    color: #0f172a;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.modal-body input:focus,
+.modal-body select:focus {
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(0, 74, 173, 0.15);
+}
+
+/* 5. Botão de Ação (CONFIRMAR) */
+#btn-confirmar-orcamento {
+    width: 100%;
+    background: linear-gradient(to right, #004aad, #003a8c);
+    color: white;
+    border: none;
+    padding: 18px; /* Botão alto e clicável */
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 10px 15px -3px rgba(0, 74, 173, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+}
+
+#btn-confirmar-orcamento:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(0, 74, 173, 0.4);
+}
+/* =========================================================
+   DETALHES DO CARRINHO (HEADER, ITENS E BOTÕES)
    ========================================================= */
 
-:root{
-  --primary:#004aad;
-  --primary-dark:#003a8c;
-  --secondary:#25d366;
-  --bg:#f0f2f5;
-  --surface:#ffffff;
-  --text:#111827;
-  --muted:#6b7280;
-  --border:#e5e7eb;
-  --shadow:0 10px 25px rgba(0,0,0,.08);
-  --shadow-strong:0 20px 45px rgba(0,0,0,.18);
-  --radius:16px;
-  --transition:all .25s ease;
-}
-
-*{ box-sizing:border-box; }
-html, body{ height:100%; }
-
-body{
-  margin:0;
-  font-family:"Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:var(--bg);
-  color:var(--text);
-}
-
-.hidden{ display:none !important; }
-
-.container{
-  width:min(1200px, 95%);
-  margin:0 auto;
-}
-
-a{ color:inherit; text-decoration:none; }
-a:hover{ text-decoration:underline; }
-
-/* =========================
-   TOPBAR
-   ========================= */
-.topbar{
-  position:sticky;
-  top:0;
-  z-index:1000;
-  background:var(--primary);
-  color:#fff;
-  padding:14px 5%;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  box-shadow:0 8px 18px rgba(0,0,0,.12);
-}
-
-.brand{
-  font-size:1.55rem;
-  font-weight:800;
-  letter-spacing:-.8px;
-}
-
-.admin-btn,
-.cart-btn{
-  background:rgba(255,255,255,.14);
-  border:1px solid rgba(255,255,255,.35);
-  color:#fff;
-  padding:10px 16px;
-  border-radius:999px;
-  font-weight:800;
-  cursor:pointer;
-  transition:var(--transition);
-  display:flex;
-  align-items:center;
-  gap:8px;
-  user-select:none;
-}
-
-.admin-btn:hover,
-.cart-btn:hover{
-  background:#fff;
-  color:var(--primary);
-}
-
-.admin-btn:active,
-.cart-btn:active{
-  transform:translateY(1px);
-}
-
-/* =========================
-   LOADING
-   ========================= */
-.loading{
-  position:fixed;
-  inset:0;
-  z-index:11000;
-  background:rgba(0,0,0,.45);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  gap:12px;
-  backdrop-filter:blur(4px);
-}
-.loading p{ margin:0; color:#fff; font-weight:700; }
-.spinner{
-  width:44px; height:44px; border-radius:50%;
-  border:4px solid rgba(255,255,255,.35);
-  border-top-color:#fff;
-  animation:spin .9s linear infinite;
-}
-@keyframes spin{ to{ transform:rotate(360deg);} }
-
-/* =========================
-   MAIN / HERO (compacto)
-   ========================= */
-#container-admin-carrinho{ position:relative; }
-#main-content{ padding:28px 0 0; }
-
-.hero-home{
-  background:var(--surface);
-  border:1px solid var(--border);
-  border-radius:calc(var(--radius) + 6px);
-  padding:22px 22px;
-  box-shadow:var(--shadow);
-  margin-top:16px;
-}
-.hero-home h1{
-  margin:0 0 6px;
-  font-size:1.55rem;
-  letter-spacing:-.8px;
-}
-.hero-home p{
-  margin:0;
-  color:var(--muted);
-  line-height:1.5;
-  font-size:.98rem;
-}
-
-/* Botões base */
-.btn-primary{
-  background:var(--primary);
-  color:#fff;
-  border:none;
-  border-radius:14px;
-  padding:12px 18px;
-  font-weight:900;
-  cursor:pointer;
-  transition:var(--transition);
-}
-.btn-primary:hover{ filter:brightness(1.05); transform:translateY(-1px); }
-.btn-primary:active{ transform:translateY(1px); }
-
-/* =========================
-   Busca + Abas (clean)
-   ========================= */
-.search-container{
-  margin-top:18px;
-  display:flex;
-  justify-content:center;
-}
-
-#app-search{
-  width:min(760px, 100%);
-  padding:14px 16px;
-  border-radius:999px;
-  border:1px solid rgba(0,0,0,.10);
-  outline:none;
-  background:#fff;
-  box-shadow:0 10px 25px rgba(0,0,0,.06);
-  font-size:1rem;
-}
-#app-search:focus{
-  border-color:rgba(0,74,173,.45);
-  box-shadow:0 12px 30px rgba(0,74,173,.12);
-}
-
-.brand-tabs-container{
-  margin-top:10px;
-  background:transparent;
-}
-
-.brand-tabs{
-  display:flex;
-  gap:10px;
-  overflow-x:auto;
-  padding:6px 2px;
-  scrollbar-width:none;
-}
-.brand-tabs::-webkit-scrollbar{ display:none; }
-
-.tab-btn{
-  border:1px solid rgba(0,0,0,.10);
-  background:#fff;
-  color:#334155;
-  padding:8px 14px;
-  border-radius:999px;
-  font-weight:800;
-  cursor:pointer;
-  transition:all .2s ease;
-  white-space:nowrap;
-}
-.tab-btn:hover{ transform:translateY(-1px); }
-.tab-btn.active{
-  background:var(--primary);
-  color:#fff;
-  border-color:var(--primary);
-}
-
-/* Grid do catálogo */
-#servicos-grid{
-  margin-top:18px;
-}
-
-/* =========================
-   Catálogo agrupado por Modelo
-   ========================= */
-.model-card{
-  background:#fff;
-  border:1px solid rgba(0,0,0,.08);
-  border-radius:16px;
-  box-shadow:0 10px 25px rgba(0,0,0,.06);
-  overflow:hidden;
-}
-
-.model-card-header{
-  padding:14px 14px 10px;
-  border-bottom:1px solid rgba(0,0,0,.06);
-  background:linear-gradient(0deg, rgba(0,74,173,.04), rgba(0,74,173,.04));
-}
-
-.model-card-title{
-  font-weight:950;
-  letter-spacing:-.2px;
-  color:#0f172a;
-}
-
-.model-card-sub{
-  margin-top:2px;
-  font-size:.88rem;
-  opacity:.72;
-}
-
-.model-card-body{
-  padding:12px 14px 14px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-/* ===== Ajuste fino: linha do serviço não quebra/corta botão ===== */
-.model-service-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;                 /* permite quebrar linha */
-  padding:10px 10px;
-  border:1px solid rgba(0,0,0,.06);
-  border-radius:12px;
-}
-
-/* nome ganha espaço e não “esmaga” */
-.ms-name{
-  flex:1 1 180px;                 /* cresce e pode quebrar se precisar */
-  font-weight:600;
-  letter-spacing:-.1px;
-  min-width:160px;
-}
-
-/* preço fica compacto e nunca quebra */
-.ms-price{
-  flex:0 0 auto;
-  font-weight:950;
-  color:var(--primary);
-  background:rgba(0,74,173,.08);
-  padding:6px 10px;
-  border-radius:999px;
-  white-space:nowrap;
-}
-
-/* botão não fica cortado e pode ir pra próxima linha */
-.ms-add{
-  flex:0 0 auto;
-  border:none;
-  cursor:pointer;
-  font-weight:900;
-  border-radius:12px;
-  padding:9px 12px;               /* um pouco menor */
-  background:var(--primary);
-  color:#fff;
-  transition:all .2s ease;
-  white-space:nowrap;
-  min-width:110px;                /* evita ficar “apertado demais” */
-}
-.ms-add:hover{
-  filter:brightness(1.06);
-  transform:translateY(-1px);
-}
-
-/* Mobile: botão embaixo, largura total (bem clean) */
-@media (max-width: 520px){
-  .ms-add{
-    width:100%;
-    min-width:0;
-  }
-}
-
-/* =========================
-   Botões do carrinho/admin
-   ========================= */
-.btn-primary-wa,
-.btn-secondary-pdf{
-  width:100%;
-  padding:14px 16px;
-  border-radius:14px;
-  border:none;
-  font-weight:900;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  transition:var(--transition);
-}
-
-.btn-primary-wa{
-  background:var(--secondary);
-  color:#fff;
-}
-.btn-secondary-pdf{
-  background:var(--primary);
-  color:#fff;
-}
-
-.btn-primary-wa:hover,
-.btn-secondary-pdf:hover{
-  transform:translateY(-1px);
-  filter:brightness(1.06);
-}
-
-.btn-clear-link{
-  width:100%;
-  border:none;
-  background:transparent;
-  color:var(--muted);
-  cursor:pointer;
-  padding:10px 0 0;
-  font-weight:800;
-  text-decoration:underline;
-}
-
-/* =========================
-   Close Button
-   ========================= */
-.close-btn{
-  border:none;
-  width:38px;
-  height:38px;
-  border-radius:999px;
-  cursor:pointer;
-  font-weight:900;
-  display:grid;
-  place-items:center;
-  transition:var(--transition);
-  background:rgba(255,255,255,.18);
-  color:#fff;
-}
-.close-btn:hover{ background:rgba(255,255,255,.28); }
-.close-btn:active{ transform:translateY(1px); }
-
-.close-btn.light{
-  background:#f3f4f6;
-  color:#111827;
-}
-.close-btn.light:hover{ background:#e5e7eb; }
-
-/* =========================
-   CARRINHO — sidebar direita
-   (mantém animação mesmo com .hidden)
-   ========================= */
-.cart-sidebar{
-  position:fixed;
-  top:0; right:0;
-  height:100vh;
-  width:380px;
-  max-width:100%;
-  background:var(--surface);
-  border-left:1px solid rgba(0,0,0,.06);
-  box-shadow:-18px 0 40px rgba(0,0,0,.14);
-  z-index:2000;
-  display:flex;
-  flex-direction:column;
-  transform:translateX(100%);
-  transition:transform .35s cubic-bezier(.4,0,.2,1);
-  will-change:transform;
-}
-
-.cart-sidebar.hidden{
-  display:flex !important;
-  transform:translateX(100%);
-  pointer-events:none;
-}
-.cart-sidebar:not(.hidden){
-  display:flex !important;
-  transform:translateX(0);
-  pointer-events:auto;
-}
-
-.cart-header{
-  background:var(--primary);
-  color:#fff;
-  padding:18px 16px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-.cart-header h3{
-  margin:0;
-  font-size:1.05rem;
-  letter-spacing:-.2px;
-}
-
-.cart-items{
-  flex:1;
-  padding:16px;
-  overflow:auto;
-}
-
-.cart-item{
-  border-bottom:1px solid rgba(0,0,0,.06);
-  padding:12px 0;
-}
-
-.cart-footer{
-  padding:16px;
-  background:#f8fafc;
-  border-top:1px solid rgba(0,0,0,.06);
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.cart-total{
-  text-align:center;
-  font-size:1.35rem;
-  font-weight:950;
-  color:var(--primary);
-  margin:0 0 6px;
-}
-
-/* =========================
-   MODAIS
-   ========================= */
-.modal{
-  position:fixed;
-  inset:0;
-  z-index:10000;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(0,0,0,.70);
-  backdrop-filter:blur(4px);
-  padding:18px;
-}
-.modal.hidden{ display:none !important; }
-
-.modal-content{
-  background:var(--surface);
-  width:min(460px, 96vw);
-  border-radius:18px;
-  box-shadow:var(--shadow-strong);
-  overflow:hidden;
-  border:1px solid rgba(0,0,0,.06);
-}
-
-.modal-header{
-  padding:18px 18px 10px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.modal-header h3{
-  margin:0;
-  font-size:1.1rem;
-  letter-spacing:-.2px;
-}
-
-.modal .close-btn{
-  background:#f3f4f6;
-  color:#111827;
-}
-.modal .close-btn:hover{ background:#e5e7eb; }
-
-.modal-body{ padding:0 18px 14px; }
-.modal-body label{
-  display:block;
-  margin-top:12px;
-  font-weight:900;
-  font-size:.92rem;
-}
-.modal-body input,
-.modal-body select{
-  width:100%;
-  margin-top:8px;
-  padding:12px 12px;
-  border-radius:12px;
-  border:1px solid var(--border);
-  outline:none;
-  transition:var(--transition);
-}
-.modal-body input:focus,
-.modal-body select:focus{
-  border-color:rgba(0,74,173,.45);
-  box-shadow:0 10px 22px rgba(0,74,173,.12);
-}
-.modal-footer{ padding:14px 18px 18px; }
-
-/* =========================
-   ADMIN — sidebar direita
-   (mantém animação mesmo com .hidden)
-   ========================= */
-.painel-admin{
-  position:fixed;
-  top:0; right:0;
-  height:100vh;
-  width:420px;
-  max-width:100%;
-  background:#f4f7f6;
-  border-left:1px solid rgba(0,0,0,.06);
-  box-shadow:-18px 0 40px rgba(0,0,0,.14);
-  z-index:9000;
-  padding:18px 18px 28px;
-  overflow:auto;
-  transform:translateX(100%);
-  transition:transform .35s cubic-bezier(.4,0,.2,1);
-  will-change:transform;
-}
-
-.painel-admin.hidden{
-  display:block !important;
-  transform:translateX(100%);
-  pointer-events:none;
-}
-.painel-admin:not(.hidden){
-  display:block !important;
-  transform:translateX(0);
-  pointer-events:auto;
-}
-
-.admin-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-  position:sticky;
-  top:0;
-  background:#f4f7f6;
-  padding:6px 0 12px;
-}
-
-.admin-header h2{
-  margin:0;
-  font-size:1.15rem;
-  letter-spacing:-.3px;
-}
-
-#btn-sair-admin{
-  background:var(--primary);
-  color:#fff;
-  border:none;
-  border-radius:12px;
-  padding:10px 14px;
-  font-weight:950;
-  cursor:pointer;
-  transition:var(--transition);
-}
-#btn-sair-admin:hover{ filter:brightness(1.05); transform:translateY(-1px); }
-#btn-sair-admin:active{ transform:translateY(1px); }
-
-.dashboard{
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));
-  gap:12px;
-  margin:14px 0 18px;
-}
-
-.dash-card{
-  background:var(--surface);
-  border:1px solid var(--border);
-  padding:14px;
-  border-radius:12px;
-  box-shadow:var(--shadow);
-  text-align:center;
-}
-
-.dash-card h3{
-  margin:0 0 8px;
-  font-size:1rem;
-}
-
-#dash-qtd{
-  display:inline-block;
-  font-size:2rem;
-  font-weight:950;
-  color:var(--primary);
-}
-
-/* =========================
-   RODAPÉ
-   ========================= */
-.rodape-intech{
-  background:#111827;
-  color:#fff;
-  padding:42px 18px;
-  text-align:center;
-  margin-top:60px;
-}
-
-.rodape-intech h3{
-  margin:0 0 8px;
-  font-size:1.2rem;
-}
-
-.rodape-intech p{
-  margin:8px 0;
-  color:rgba(255,255,255,.78);
-}
-
-.social-links{
-  display:flex;
-  justify-content:center;
-  gap:14px;
-  flex-wrap:wrap;
-  margin:18px 0;
-}
-
-.social-links a{
-  background:rgba(255,255,255,.10);
-  border:1px solid rgba(255,255,255,.16);
-  padding:10px 16px;
-  border-radius:999px;
-  color:#fff;
-  font-weight:900;
-  transition:var(--transition);
-  text-decoration:none;
-}
-.social-links a:hover{
-  background:var(--primary);
-  border-color:rgba(255,255,255,.20);
-  text-decoration:none;
-}
-
-.creditos{
-  margin-top:18px;
-  font-size:.85rem;
-  color:rgba(255,255,255,.55);
-}
-
-/* =========================
-   RESPONSIVO
-   ========================= */
-@media (max-width:768px){
-  .topbar{ padding:12px 12px; }
-  .brand{ font-size:1.25rem; }
-  .admin-btn, .cart-btn{ padding:9px 12px; }
-
-  .hero-home{ padding:18px 16px; }
-  .hero-home h1{ font-size:1.45rem; }
-
-  .cart-sidebar{ width:100%; }
-  .painel-admin{ width:100%; }
-
-  .model-service-row{
-    grid-template-columns: 1fr;
-    align-items:stretch;
-  }
-  .ms-price{ justify-self:flex-start; }
-  .ms-add{ width:100%; }
-}
-.dash-card span{
-  display:inline-block;
-  font-size:1.6rem;
-  font-weight:950;
-  color:var(--primary);
-}
-
-/* Cole no FINAL do style.css (opcional — melhora o visual, sem inline) */
-#tabela-raw{
-  width:100%;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
-  outline:none;
-}
-
-#tabela-raw:focus{
-  border-color:rgba(0,74,173,.45);
-  box-shadow:0 10px 22px rgba(0,74,173,.12);
-}
-
-#tabela-preview-box{
-  background:#fff;
-}
-#dash-export-status{
-  color: #111827 ;
-}
-/* --- Estilos Administrativos e Gerais --- */
-
-.admin-import-box {
-  margin-top: 18px;
-  padding: 14px;
-  background: #fff;
-  border: 1px solid rgba(0,0,0,.08);
-  border-radius: 14px;
-}
-
-.input-standard {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  outline: none;
-  margin-bottom: 10px;
-}
-
-.admin-actions-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.clickable-label {
-  flex: 1;
-  cursor: pointer;
-  text-align: center;
-}
-
-.status-msg {
-  margin-top: 10px;
-  font-weight: 700;
-  opacity: .85;
-}
-
-.helper-text {
-  margin: 10px 0 0;
-  font-size: .85rem;
-  opacity: .75;
-  line-height: 1.35;
-}
-
-.wide-card {
-  text-align: left !important;
-}
-
-.date-filter-row, .cost-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.input-group label {
-  display: block;
-  font-weight: 900;
-  margin-bottom: 6px;
-}
-
-.input-group input {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 10px 12px;
-  outline: none;
-}
-
-.label-bold {
-  display: block;
-  font-weight: 900;
-  margin: 10px 0 6px;
-}
-
-.brand-select-row {
-  margin-top: 10px;
-}
-
-.preview-box {
-  margin-top: 10px;
-  overflow: auto;
-  max-height: 260px;
-  border: 1px solid rgba(0,0,0,.06);
-  border-radius: 12px;
-  padding: 10px;
-  background: #fff;
-}
-
-.error-msg {
-  display: none;
-  margin: 8px 0 0;
-  color: #dc2626;
-  font-weight: 800;
-}
-
-.btn-exit {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-/* --- AJUSTE NO BOTÃO ADD E PREÇO --- */
-
-.model-service-row {
+/* 1. O Cabeçalho Azul e o Botão Fechar (X) */
+.cart-header {
+    background: var(--primary); /* Azul da marca */
+    padding: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
-    background: #f8f9fa; /* Fundo leve para destacar a linha */
-    border-radius: 10px;
-    margin-bottom: 8px;
-    transition: var(--transition);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
-.model-service-row:hover {
-    background: #f1f3f5;
+.cart-header h3 {
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.5px;
 }
 
-.ms-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #333;
-    flex: 1; /* Garante que o nome ocupe o espaço restante */
-}
-
-/* Container do Preço + Botão */
-.model-service-row > div:last-child {
+/* O Botão X (Fechar) - Agora é um círculo interativo */
+.cart-header .close-btn {
+    background: rgba(255, 255, 255, 0.15); /* Transparencia sutil */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%; /* Redondo */
     display: flex;
     align-items: center;
-    gap: 12px; /* Espaço fixo entre preço e botão */
-}
-
-.ms-price {
-    font-weight: 800;
-    color: var(--primary);
-    font-size: 1rem;
-    white-space: nowrap; /* Impede que o preço quebre em duas linhas */
-    background: #eef2f7;
-    padding: 4px 10px;
-    border-radius: 20px;
-}
-
-.ms-add {
-    background: var(--primary); /* Azul Monteiro Intech */
-    color: white;
-    border: none;
-    padding: 8px 18px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 0.85rem;
+    justify-content: center;
+    font-size: 1.1rem;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 74, 173, 0.2);
+    transition: all 0.3s ease;
 }
 
-.ms-add:hover {
-    background: #003a8c;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 74, 173, 0.3);
+.cart-header .close-btn:hover {
+    background: #ffffff;
+    color: var(--primary); /* Inverte as cores ao passar o mouse */
+    transform: rotate(90deg); /* Efeito de giro "Tech" */
 }
 
-.ms-add:active {
-    transform: translateY(0);
+/* 2. Cabeçalho do Grupo (Ex: APPLE 11...) */
+.cart-group-header {
+    background: #f1f5f9; /* Cinza tech bem claro */
+    color: var(--primary);
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-left: 5px solid var(--primary); /* Linha lateral para destaque */
+    margin-top: 10px; /* Separação do item anterior */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+}
+
+/* 3. Linha do Item (Serviço + Preço + Remover) */
+.cart-item {
+    background: #ffffff;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between; /* Espalha o nome para a esq e preço/X para a dir */
+    align-items: center;
+    transition: background 0.2s;
+}
+
+.cart-item:hover {
+    background: #fafafa; /* Leve destaque ao passar o mouse */
+}
+
+/* Nome do Serviço e Unidade */
+.cart-item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.cart-item-name {
+    font-weight: 700;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+.cart-item-unit {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* Container Preço + Botão Remover */
+.cart-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* Espaço entre o preço e o X */
+}
+
+.cart-item-price {
+    font-weight: 800;
+    color: #0f172a; /* Preto/Azul escuro para contraste */
+    font-size: 1rem;
+}
+
+/* O Botão de Remover (X vermelhinho) */
+.remove-item-btn {
+    background: #fee2e2; /* Fundo vermelho bem claro */
+    color: #ef4444;       /* Ícone vermelho */
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px; /* Quadrado arredondado (estilo App iOS) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.remove-item-btn:hover {
+    background: #ef4444;
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+}
+/* =========================================================
+   RODAPÉ TECH — MONTEIRO INTECH
+   ========================================================= */
+
+.rodape-intech {
+    background: #0f172a; /* Azul marinho ultra escuro */
+    color: #f8fafc;
+    padding: 60px 20px 30px;
+    margin-top: 80px;
+    border-top: 4px solid var(--primary);
+    text-align: center;
+}
+
+.rodape-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+}
+
+/* Título e Slogan */
+.rodape-brand h2 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin: 0;
+    letter-spacing: -1px;
+    color: #ffffff;
+}
+
+.rodape-brand p {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin-top: 5px;
+}
+
+/* Redes Sociais Estilizadas */
+.rodape-links {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.rodape-links a {
+    text-decoration: none;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rodape-links a:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 74, 173, 0.3);
+}
+
+/* Linha de Copyright */
+.rodape-bottom {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.rodape-bottom b {
+    color: #94a3b8;
 }
