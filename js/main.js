@@ -989,6 +989,7 @@ function consolidarMaiorPreco(entries) {
     const key = `${marca}|||${modelo}|||${servico}`;
 
     const atual = map.get(key);
+
     if (!atual || Number(e.precoFinal || 0) > Number(atual.precoFinal || 0)) {
       map.set(key, e);
     }
@@ -1218,7 +1219,7 @@ function processar() {
       relatorios = items.map(normalizeRelatorio);
       relatorios.sort((a, b) => new Date(b.dataISO) - new Date(a.dataISO));
       renderRelatorios();
-      atualizarDashboardAdmin
+      atualizarDashboardAdmin();
     },
     (err) => console.error(err)
   );

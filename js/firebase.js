@@ -9,6 +9,7 @@ import {
   writeBatch,
   doc
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyAxU22mYf7ctyPviMKO8M3_-QfM2S-4-2k",
   authDomain: "orcamentointech-f69f9.firebaseapp.com",
@@ -21,26 +22,51 @@ const firebaseConfig = {
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
+console.log("Projeto Firebase em uso:", app.options.projectId);
+console.log("Projeto do db:", db.app.options.projectId);
+
+async function testeFirestore() {
+  try {
+    const snap = await getDocs(collection(db, "orcamentos"));
+    console.log("TESTE FIRESTORE OK:", snap.size, "documentos em /orcamentos");
+  } catch (e) {
+    console.error("TESTE FIRESTORE FALHOU:");
+    console.error("code:", e?.code);
+    console.error("message:", e?.message);
+    console.error("full error:", e);
+  }
+}
+
+testeFirestore();
+
 /* ============================ CONFIG CATÁLOGO ============================ */
 
 export const CATALOGO_COLLECTION = "modelos";
 const SHOW_ZERO_PRICES = false;
+
 /* ============================ ORÇAMENTOS (/orcamentos) ============================ */
 
 export function listenOrcamentos(cb, onErr) {
   const ref = collection(db, "orcamentos");
+
   return onSnapshot(
     ref,
-    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      console.log("[listenOrcamentos] leitura OK:", items.length, "itens");
+      cb(items);
+    },
     (err) => {
-      console.error("Erro ao ler /orcamentos:", err);
+      console.error("Erro ao ler /orcamentos:");
+      console.error("code:", err?.code);
+      console.error("message:", err?.message);
+      console.error("full error:", err);
       onErr?.(err);
     }
   );
 }
 
-/* ============================ CATÁLOGO (LER)  ============================ */
-
+/* ============================ CATÁLOGO (LER) ============================ */
 
 function toNumber(v) {
   if (v === null || v === undefined) return 0;
@@ -57,7 +83,7 @@ function slug(s) {
     .replace(/[^\w\-]/g, "");
 }
 
-// ================================= GET CATÁLOGO  ================================= //
+/* ================================= GET CATÁLOGO ================================= */
 
 export async function getCatalogoOnce() {
   const modelosRef = collection(db, CATALOGO_COLLECTION);
@@ -80,7 +106,7 @@ export async function getCatalogoOnce() {
 
     if (!servicosMap || typeof servicosMap !== "object" || Array.isArray(servicosMap)) return;
 
-    // ✅ condensa por nome normalizado (sem C/ARO) e pega MAIOR preço
+    // condensa por nome normalizado (sem C/ARO) e pega o maior preço
     const bestByServico = new Map(); // nomeLower -> { nome, preco }
 
     for (const [nomeRaw, precoRaw] of Object.entries(servicosMap)) {
@@ -94,6 +120,7 @@ export async function getCatalogoOnce() {
 
       const key = nome.toLowerCase();
       const prev = bestByServico.get(key);
+
       if (!prev || preco > prev.preco) {
         bestByServico.set(key, { nome, preco });
       }
@@ -116,7 +143,7 @@ export async function getCatalogoOnce() {
   return items;
 }
 
-// ============================ IMPORTAR CSV ============================ //
+/* ============================ IMPORTAR CSV ============================ */
 
 export async function importCatalogoFromCsvRows(rows, opts = {}) {
   const {
@@ -168,7 +195,9 @@ export async function importCatalogoFromCsvRows(rows, opts = {}) {
     for (const col of serviceCols) {
       const preco = toNumber(r[col]);
       if (!includeZero && preco <= 0) continue;
-      if (col && String(col).trim()) servicos[String(col).trim()] = preco;
+      if (col && String(col).trim()) {
+        servicos[String(col).trim()] = preco;
+      }
     }
 
     const docId = slug(`${marca}__${modelo}`);
@@ -190,7 +219,7 @@ export async function importCatalogoFromCsvRows(rows, opts = {}) {
   return { written, skipped };
 }
 
-// ============================= Robo para automatizar preços =================================== //
+/* ============================= ROBO PARA AUTOMATIZAR PREÇOS ============================= */
 
 export async function upsertTabelaPrecos(entries, opts = {}) {
   const { marcaPadrao = "Samsung", collectionName = "modelos" } = opts;
@@ -199,7 +228,7 @@ export async function upsertTabelaPrecos(entries, opts = {}) {
     return { modelsUpdated: 0, servicesUpdated: 0 };
   }
 
-  // Carrega tudo existente para comparar e NÃO baixar preço
+  // Carrega tudo existente para comparar e não baixar preço
   const snap = await getDocs(collection(db, collectionName));
 
   // key (marca|||modelo) -> { id, servicos }
@@ -213,9 +242,10 @@ export async function upsertTabelaPrecos(entries, opts = {}) {
 
     existingByKey.set(`${marca.toLowerCase()}|||${modelo.toLowerCase()}`, {
       id: d.id,
-      servicos: (data.servicos && typeof data.servicos === "object" && !Array.isArray(data.servicos))
-        ? data.servicos
-        : {}
+      servicos:
+        data.servicos && typeof data.servicos === "object" && !Array.isArray(data.servicos)
+          ? data.servicos
+          : {}
     });
   });
 
@@ -226,11 +256,10 @@ export async function upsertTabelaPrecos(entries, opts = {}) {
       .replace(/\s+/g, "_")
       .replace(/[^\w\-]/g, "");
 
-  // ---------- REGRA "SEM ARO" ----------
   // base = remove " C/ARO" do final
   const baseServico = (nome) => String(nome || "").replace(/\sC\/ARO\s*$/i, "").trim();
 
-  // 1) Descobre "bases" que já têm C/ARO no Firebase (por modelo)
+  // 1) Descobre bases que já têm C/ARO no Firebase
   const aroExistente = new Set(); // key: marca|||modelo|||base
   for (const [key, ex] of existingByKey.entries()) {
     const servs = ex.servicos || {};
@@ -242,23 +271,25 @@ export async function upsertTabelaPrecos(entries, opts = {}) {
     }
   }
 
-  // 2) Descobre "bases" que terão C/ARO no lote atual
+  // 2) Descobre bases que terão C/ARO no lote atual
   const aroNoLote = new Set();
   for (const e of entries) {
     const marca = String(e.marca || marcaPadrao).trim();
     const modelo = String(e.modelo || "").trim();
-const servico = String(e.servico || "").trim().replace(/\sC\/ARO\s*$/i, "").trim();
-    if (!marca || !modelo || !servico) continue;
+    const servicoOriginal = String(e.servico || "").trim();
+    const servicoBase = servicoOriginal.replace(/\sC\/ARO\s*$/i, "").trim();
 
-    if (/\sC\/ARO\s*$/i.test(servico)) {
+    if (!marca || !modelo || !servicoOriginal) continue;
+
+    if (/\sC\/ARO\s*$/i.test(servicoOriginal)) {
       const key = `${marca.toLowerCase()}|||${modelo.toLowerCase()}`;
-      const base = baseServico(servico).toLowerCase();
+      const base = baseServico(servicoBase).toLowerCase();
       if (base) aroNoLote.add(`${key}|||${base}`);
     }
   }
 
-  // ---------- Monta atualizações (somente aumentos) ----------
-  const updates = new Map(); // docId -> { marca, modelo, servicos: {nome:preco} }
+  // Monta atualizações (somente aumentos)
+  const updates = new Map(); // docId -> { marca, modelo, servicos: { nome: preco } }
   let servicesUpdated = 0;
 
   for (const e of entries) {
@@ -274,20 +305,24 @@ const servico = String(e.servico || "").trim().replace(/\sC\/ARO\s*$/i, "").trim
     const ex = existingByKey.get(key);
     const docId = ex?.id || slugLocal(`${marca}__${modelo}`);
 
-    // REGRA "SEM ARO": se não é C/ARO e existe C/ARO dessa base (existente ou no lote), ignora
+    // Regra "SEM ARO": se não é C/ARO e existe C/ARO dessa base, ignora
     const isAro = /\sC\/ARO\s*$/i.test(servico);
     const base = baseServico(servico).toLowerCase();
     const aroKey = `${key}|||${base}`;
+
     if (!isAro && base && (aroExistente.has(aroKey) || aroNoLote.has(aroKey))) {
       continue;
     }
 
     const atual = Number(ex?.servicos?.[servico] || 0);
 
-    // REGRA: nunca diminui
+    // Nunca diminui
     if (atual >= novo) continue;
 
-    if (!updates.has(docId)) updates.set(docId, { marca, modelo, servicos: {} });
+    if (!updates.has(docId)) {
+      updates.set(docId, { marca, modelo, servicos: {} });
+    }
+
     updates.get(docId).servicos[servico] = novo;
     servicesUpdated++;
   }

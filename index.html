@@ -29,20 +29,6 @@
     <p>Carregando...</p>
   </div>
 
-  <div id="container-admin-carrinho">
-    <section id="painel-admin" class="painel-admin hidden">
-      <div class="admin-import-box">
-        <h3>📥 Importar Catálogo (CSV → Firestore)</h3>
-        <input id="csv-url" type="url" placeholder="Cole a URL direta do CSV (https://...)" class="input-standard" />
-        <div class="admin-actions-row">
-          <button type="button" id="btn-importar-csv-url" class="btn-secondary-pdf">Importar da URL</button>
-          <label class="btn-secondary-pdf clickable-label" for="csv-file">Importar Arquivo</label>
-          <input id="csv-file" type="file" accept=".csv,text/csv" hidden />
-        </div>
-        <div id="import-status" class="status-msg"></div>
-        <p class="helper-text">Observação: URL precisa permitir CORS. Caso contrário, use “Importar Arquivo”.</p>
-      </div>
-
       <div class="admin-header">
         <h2>Painel Administrativo</h2>
         <button type="button" id="btn-sair-admin" class="btn-exit">Sair</button>
