@@ -5,7 +5,7 @@
 
 // ----------- CARREGA E PROCESSA PLANILHA ----------- //
 import { mostrarLoading, ocultarLoading } from "./ui.js";
-import { dados, colunasServicos, marcas } from "./state.js";
+import { dados, colunasServicos, marcas } from "./dados.js";
 import { montarHomeEAbas } from "./ui.js";
 
 

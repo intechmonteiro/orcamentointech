@@ -35,6 +35,10 @@ const ui = {
   relatorioLista: el("relatorio-lista"),
   dashQtd: el("dash-qtd"),
   btnExportarRelatorio: el("btn-exportar-relatorio"),
+  btnExportarDashboard: el("btn-exportar-dashboard"),
+  dashDateStart: el("dash-date-start"),
+  dashDateEnd: el("dash-date-end"),
+  dashExportStatus: el("dash-export-status"),
 
   // Modal orçamento
   modalOrc: el("modal-orcamento"),
@@ -50,6 +54,7 @@ const ui = {
   adminPass: el("admin-pass"),
   adminErr: el("admin-err"),
   btnAdminEntrar: el("btn-admin-entrar"),
+  adminUser: el("admin-user"),
 
   // Lista serviços
   listaServicos: el("lista-servicos"),
@@ -57,6 +62,7 @@ const ui = {
 
 // =========================== CONFIGURAÇÕES ===========================//
 
+const ADMIN_USER = "lucas";
 const ADMIN_PASSWORD = "132205";
 const ADMIN_SESSION_KEY = "mi_admin_authed";
 const CART_STORAGE_KEY = "mi_cart_v1";
@@ -311,8 +317,6 @@ function ensureCatalogUI() {
     });
   }
 }
-
-
 function buildBrandTabs() {
   const tabs = document.getElementById("brand-tabs");
   if (!tabs) return;
@@ -632,7 +636,7 @@ function renderRelatorios() {
     `;
 
     ui.relatorioLista.appendChild(card);
-  });
+      });
 
   // bind do botão abrir PDF
   ui.relatorioLista.querySelectorAll("[data-open-pdf]").forEach((btn) => {
@@ -671,6 +675,52 @@ function exportRelatorioCSV() {
 
 // =========================== Importação CSV (Admin)  ===========================//
 
+
+
+function exportDashboardPorPeriodo() {
+  if (!relatorios.length) return alert("Sem dados para exportar.");
+
+  const startRaw = ui.dashDateStart?.value || "";
+  const endRaw = ui.dashDateEnd?.value || "";
+
+  const start = startRaw ? new Date(`${startRaw}T00:00:00`) : null;
+  const end = endRaw ? new Date(`${endRaw}T23:59:59`) : null;
+
+  const filtrados = relatorios.filter((r) => {
+    const d = new Date(r.dataISO);
+    if (start && d < start) return false;
+    if (end && d > end) return false;
+    return true;
+  });
+
+  if (!filtrados.length) {
+    if (ui.dashExportStatus) ui.dashExportStatus.textContent = "Nenhum registro no período selecionado.";
+    return;
+  }
+
+  const header = ["Cliente", "Pagamento", "Total", "Data"];
+  const rows = filtrados.map((r) => [
+    (r.cliente || "").replaceAll('"', '""'),
+    (r.pagamento || "").replaceAll('"', '""'),
+    String(r.total || 0).replace('.', ','),
+    new Date(r.dataISO).toLocaleString('pt-BR'),
+  ]);
+
+  const csv = header.join(';') + "\n" + rows.map((row) => row.map((v) => `"${v}"`).join(';')).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  const sufixo = `${startRaw || 'inicio'}_${endRaw || 'hoje'}`;
+  a.download = `dashboard_${sufixo}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+
+  if (ui.dashExportStatus) ui.dashExportStatus.textContent = `Exportado ${filtrados.length} registro(s).`;
+}
 
 function setImportStatus(msg, isError = false) {
   const box = document.getElementById("import-status");
@@ -782,13 +832,12 @@ try {
 ui.modalOrc?.addEventListener("click", (e) => { if (e.target === ui.modalOrc) closeModalOrcamento(); });
 ui.abrirAdmin?.addEventListener("click", () => { if (isAdminAuthed()) openAdminPanel(); else openAdminLogin(); });
 ui.modalAdminFechar?.addEventListener("click", closeAdminLogin);
-ui.adminUser = el("admin-user");
 ui.btnAdminEntrar?.addEventListener("click", () => {
   const user = (ui.adminUser?.value || "").trim();
   const pass = (ui.adminPass?.value || "").trim();
 
   // Defina aqui seu usuário e senha
-  if (user === "lucas" && pass === "132205") { 
+  if (user === ADMIN_USER && pass === ADMIN_PASSWORD) { 
     sessionStorage.setItem(ADMIN_SESSION_KEY, "1");
     closePanel(ui.modalAdminLogin);
     openPanel(ui.painelAdmin); // Abre a tela cheia configurada no CSS
@@ -801,6 +850,7 @@ ui.adminPass?.addEventListener("keydown", (e) => { if (e.key === "Enter") ui.btn
 ui.modalAdminLogin?.addEventListener("click", (e) => { if (e.target === ui.modalAdminLogin) closeAdminLogin(); });
 ui.sairAdmin?.addEventListener("click", () => { setAdminAuthed(false); closeAdminPanel(); });
 ui.btnExportarRelatorio?.addEventListener("click", () => { if (!isAdminAuthed()) return alert("Acesso negado."); exportRelatorioCSV(); });
+ui.btnExportarDashboard?.addEventListener("click", () => { if (!isAdminAuthed()) return alert("Acesso negado."); exportDashboardPorPeriodo(); });
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -906,7 +956,7 @@ function limparNomeServico(textoOriginal) {
     // 2. Lógica da Linha JK -> Vira INCELL
     // Se tiver "JK", a gente remove o "JK" e garante que tenha "INCELL"
     if (nome.includes("JK")) {
-        nome = nome.replace(/JK/g, ""); // Remove o termo JK
+              nome = nome.replace(/JK/g, ""); // Remove o termo JK
         if (!nome.includes("INCELL")) {
             nome += " INCELL"; // Adiciona INCELL se já não tiver
         }

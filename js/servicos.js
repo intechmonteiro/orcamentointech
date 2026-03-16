@@ -1,21 +1,57 @@
-// modelos.js
+// servicos.js (legacy compatibility)
+import { getCatalogoOnce } from "./firebase.js";
 
-import { obterModelos } from './firebase.js';  // Importa a função obterModelos para buscar os dados do Firestore
-import { mostrarServicos } from './servicos.js';  // Para exibir os serviços quando um modelo for clicado
+function normalizar(s) {
+  return String(s || "").trim().toLowerCase();
+}
+
+export async function mostrarServicos(marca, modelo) {
+  const container = document.getElementById("lista-servicos");
+  if (!container) return;
+
+  const catalogo = await getCatalogoOnce();
+  const itens = catalogo.filter((item) =>
+    normalizar(item.marca) === normalizar(marca) && normalizar(item.modelo) === normalizar(modelo)
+  );
+
+  container.innerHTML = `
+    <h2>${marca} ${modelo}</h2>
+    <div class="servicos-legacy-list"></div>
+  `;
+
+  const list = container.querySelector(".servicos-legacy-list");
+  if (!list) return;
+
+  if (!itens.length) {
+    list.innerHTML = `<p>Nenhum serviço encontrado para este modelo.</p>`;
+    return;
+  }
+
+  list.innerHTML = itens
+    .sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"))
+    .map((item) => `
+      <div class="servico-item" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;">
+        <span>${item.nome}</span>
+        <strong>${Number(item.preco || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+      </div>
+    `)
+    .join("");
+}
 
 export async function mostrarModelosPorMarca(marca) {
   const container = document.getElementById("lista-servicos");
   if (!container) return;
 
-  // Obtém os modelos diretamente do Firestore
-  const modelos = await obterModelos();
+  const catalogo = await getCatalogoOnce();
+  const modelos = Array.from(
+    new Set(
+      catalogo
+        .filter((item) => normalizar(item.marca) === normalizar(marca))
+        .map((item) => String(item.modelo || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
 
-  // Filtra os modelos da marca selecionada
-  const modelosDaMarca = modelos.filter(modelo => modelo.marca === marca)
-    .map(modelo => modelo.modelo)  // Mapeia para pegar apenas o nome do modelo
-    .sort();  // Ordena os modelos
-
-  // HTML base para exibir os modelos
   container.innerHTML = `
     <h2>${marca}</h2>
     <input type="text" class="input-busca-modelo" placeholder="Buscar modelo..." />
@@ -24,34 +60,24 @@ export async function mostrarModelosPorMarca(marca) {
 
   const input = container.querySelector(".input-busca-modelo");
   const scroll = container.querySelector(".modelos-scroll");
+  if (!input || !scroll) return;
 
-  // Função para renderizar os modelos na tela
   function renderModelos(lista) {
-    scroll.innerHTML = "";  // Limpa a lista de modelos exibida
-
-    lista.forEach(modelo => {
+    scroll.innerHTML = "";
+    lista.forEach((modelo) => {
       const btn = document.createElement("button");
       btn.className = "modelo-item";
-      btn.textContent = modelo;  // Exibe o nome do modelo
-
-      // Quando clicar no modelo, chama a função para mostrar os serviços do modelo
-      btn.addEventListener("click", () => {
-        mostrarServicos(marca, modelo);  // Mostra os serviços ao clicar no modelo
-      });
-
-      scroll.appendChild(btn);  // Adiciona o modelo à lista na tela
+      btn.textContent = modelo;
+      btn.addEventListener("click", () => mostrarServicos(marca, modelo));
+      scroll.appendChild(btn);
     });
   }
 
-  // Renderiza os modelos filtrados (ou todos, se não houver filtro)
-  renderModelos(modelosDaMarca);
+  renderModelos(modelos);
 
-  // Filtro de busca em tempo real
-  input.addEventListener("input", e => {
-    const termo = e.target.value.toLowerCase();  // Obtém o termo de busca digitado
-    const filtrados = modelosDaMarca.filter(m =>
-      m.toLowerCase().includes(termo)  // Filtra os modelos conforme o termo digitado
-    );
-    renderModelos(filtrados);  // Atualiza a lista de modelos exibidos
+  input.addEventListener("input", (e) => {
+    const termo = String(e.target?.value || "").toLowerCase().trim();
+    const filtrados = modelos.filter((m) => m.toLowerCase().includes(termo));
+    renderModelos(filtrados);
   });
 }
